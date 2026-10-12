@@ -10,11 +10,7 @@
 	import type { AiAnswer, NewsItem } from '#lib/news/types.ts';
 	import { formatDuration } from '#lib/format.ts';
 	import { feedbackDialog } from '#lib/feedback.svelte.ts';
-
-	type Message =
-		| { role: 'user'; text: string }
-		| { role: 'ai'; text: string; model: string }
-		| { role: 'error'; text: string; retry?: string };
+	import { listChats, loadChat, removeChat, saveChat, type Chat, type ChatMessage as Message } from '#lib/chats.ts';
 
 	let newsId = $state<string | null>(null);
 	let item = $state<NewsItem | null>(null);
@@ -25,6 +21,7 @@
 	let thinking = $state(false);
 	let now = $state(Date.now());
 	let chatEnd = $state<HTMLElement>();
+	let saved = $state<Chat[]>([]);
 
 	// The page is prerendered, so the query string is read in the browser only.
 	function readQuery() {
@@ -36,7 +33,19 @@
 		asked = [];
 		item = null;
 		if (id) open(id);
-		else itemState = 'none';
+		else {
+			itemState = 'none';
+			saved = listChats();
+		}
+	}
+
+	function persist() {
+		if (item) saveChat({ item, messages, suggestions, asked, updatedAt: Date.now() });
+	}
+
+	function forget(id: string) {
+		removeChat(id);
+		saved = listChats();
 	}
 	onMount(() => {
 		const t = setInterval(() => (now = Date.now()), 30_000);
@@ -45,6 +54,23 @@
 	afterNavigate(readQuery);
 
 	async function open(id: string) {
+		// A chat saved in this browser comes back as it was, without asking the AI again.
+		const chat = loadChat(id);
+		if (chat) {
+			item = chat.item;
+			messages = chat.messages;
+			suggestions = chat.suggestions;
+			asked = chat.asked;
+			itemState = 'ok';
+			// The last question may have gone unanswered (errors aren't saved): offer a retry.
+			const last = messages.at(-1);
+			if (last?.role === 'user') {
+				const q = last.text === 'Короткий переказ' ? 'summary' : last.text;
+				messages.push({ role: 'error', text: 'Відповіді на це запитання немає.', retry: q });
+			}
+			scrollDown();
+			return;
+		}
 		itemState = 'loading';
 		try {
 			const res = await fetch(`/api/news-item?id=${encodeURIComponent(id)}`);
@@ -70,11 +96,15 @@
 		suggestions = suggestions.filter((s) => s !== question);
 		thinking = true;
 		scrollDown();
+		// The server gives up after 30 s; this is a safety net so the chat never hangs on «думає…».
+		const ctrl = new AbortController();
+		const timer = setTimeout(() => ctrl.abort(), 40_000);
 		try {
 			const res = await fetch('/api/ai/news', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ newsId, question })
+				body: JSON.stringify({ newsId, question }),
+				signal: ctrl.signal
 			});
 			if (res.ok) {
 				const a = (await res.json()) as AiAnswer;
@@ -86,9 +116,15 @@
 				messages.push({ role: 'error', text: errorText(res.status, body.error), retry: res.status === 502 || res.status === 429 ? question : undefined });
 			}
 		} catch {
-			messages.push({ role: 'error', text: "Немає зв'язку з сервером. Спробуйте пізніше.", retry: question });
+			messages.push({
+				role: 'error',
+				text: ctrl.signal.aborted ? 'ШІ не відповів вчасно. Спробуйте ще раз.' : "Немає зв'язку з сервером. Спробуйте пізніше.",
+				retry: question
+			});
 		} finally {
+			clearTimeout(timer);
 			thinking = false;
+			persist();
 			scrollDown();
 		}
 	}
@@ -116,6 +152,22 @@
 		<h1>ШІ</h1>
 		<p>Тут ШІ допомагає розібратися в новинах вашої області: коротко переказує допис і відповідає на запитання про нього.</p>
 		<p class="muted">Як почати: натисніть на область на карті → «Новини» → «⋮» на картці новини → «Переказ ШІ».</p>
+
+		{#if saved.length > 0}
+			<h2 class="saved-title">Ваші розмови</h2>
+			<ul class="saved">
+				{#each saved as c (c.item.id)}
+					<li>
+						<a href={`${resolve('/ai')}?news=${encodeURIComponent(c.item.id)}`}>
+							<span class="saved-name">{c.item.title}</span>
+							<span class="saved-meta">{c.item.source.name} · {formatDuration(new Date(c.updatedAt).toISOString(), now)} тому</span>
+						</a>
+						<button onclick={() => forget(c.item.id)} aria-label="Видалити розмову">✕</button>
+					</li>
+				{/each}
+			</ul>
+			<p class="muted small">Розмови зберігаються лише в цьому браузері, тиждень.</p>
+		{/if}
 	{:else if itemState === 'loading'}
 		<p class="muted">Завантаження…</p>
 	{:else if itemState === 'missing'}
@@ -152,7 +204,7 @@
 				{/if}
 			{/each}
 			{#if thinking}
-				<p class="bubble ai thinking"><span class="who">✨ ШІ</span> думає…</p>
+				<p class="bubble ai thinking"><span class="who">✨ ШІ</span> думає… (до півхвилини)</p>
 			{/if}
 		</div>
 
@@ -168,6 +220,61 @@
 </div>
 
 <style>
+	.saved-title {
+		margin: 24px 0 8px;
+		font-size: 1.05rem;
+	}
+	.saved {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 8px;
+	}
+	.saved li {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		border: 1px solid var(--border);
+		border-radius: 14px;
+		background: var(--surface);
+	}
+	.saved a {
+		flex: 1;
+		min-width: 0;
+		display: grid;
+		gap: 2px;
+		padding: 10px 12px;
+		color: var(--text);
+		text-decoration: none;
+	}
+	.saved-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 600;
+	}
+	.saved-meta {
+		font-size: 0.8rem;
+		color: var(--muted);
+	}
+	.saved button {
+		flex: none;
+		width: 36px;
+		height: 36px;
+		margin-right: 6px;
+		border: 0;
+		border-radius: 8px;
+		background: transparent;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.saved button:hover {
+		background: var(--surface-2);
+	}
+	.small {
+		font-size: 0.8rem;
+	}
 	/* Scroll the last message above the floating menu. */
 	.chat-end {
 		scroll-margin-bottom: calc(var(--nav-h) + 40px);

@@ -46,23 +46,36 @@ type Asker struct {
 	models     []string
 	log        *slog.Logger
 	retryDelay time.Duration
+	// deadline bounds the whole answer, retries and fallbacks included, so the user
+	// gets an error instead of waiting for minutes.
+	deadline time.Duration
+	perCall  time.Duration
 }
 
 func NewAsker(o *OpenRouter, log *slog.Logger) *Asker {
-	return &Asker{llm: o, models: o.Models, log: log, retryDelay: 2 * time.Second}
+	return &Asker{llm: o, models: o.Models, log: log, retryDelay: 1500 * time.Millisecond,
+		deadline: 30 * time.Second, perCall: 20 * time.Second}
 }
 
 // Ask answers question (Summary or a suggested question) about post.
 // asked lists questions already asked, so the model suggests new ones.
 func (a *Asker) Ask(ctx context.Context, post Post, question string, asked []string) (Answer, error) {
 	prompt := buildPrompt(post, question, asked)
+	if a.deadline > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, a.deadline)
+		defer cancel()
+	}
 	for _, model := range a.models {
+		if ctx.Err() != nil {
+			break
+		}
 		raw, err := a.call(ctx, model, prompt)
 		if err != nil && strings.Contains(err.Error(), "429") {
 			// Free models are often briefly overloaded; one retry after a pause.
 			select {
 			case <-ctx.Done():
-				return Answer{}, ctx.Err()
+				return Answer{}, ErrNoModel
 			case <-time.After(a.retryDelay):
 			}
 			raw, err = a.call(ctx, model, prompt)
@@ -83,9 +96,12 @@ func (a *Asker) Ask(ctx context.Context, post Post, question string, asked []str
 }
 
 func (a *Asker) call(ctx context.Context, model, prompt string) (string, error) {
-	mctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
-	return a.llm.complete(mctx, model, prompt)
+	if a.perCall > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, a.perCall)
+		defer cancel()
+	}
+	return a.llm.complete(ctx, model, prompt)
 }
 
 func buildPrompt(post Post, question string, asked []string) string {

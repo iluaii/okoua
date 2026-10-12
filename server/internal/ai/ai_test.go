@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"alert-concept/server/internal/storage"
 )
@@ -151,5 +152,26 @@ func TestAskRetriesOn429(t *testing.T) {
 	}
 	if strings.Join(s.calls, ",") != "a,a,b" {
 		t.Errorf("calls = %v, want one retry of the overloaded model before falling back", s.calls)
+	}
+}
+
+// slowStub never answers before its context ends.
+type slowStub struct{ calls int }
+
+func (s *slowStub) complete(ctx context.Context, model, prompt string) (string, error) {
+	s.calls++
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
+func TestAskDeadline(t *testing.T) {
+	s := &slowStub{}
+	asker := &Asker{llm: s, models: []string{"a", "b"}, log: discard, deadline: 50 * time.Millisecond, perCall: time.Second}
+	start := time.Now()
+	if _, err := asker.Ask(context.Background(), Post{Text: "т"}, Summary, nil); !errors.Is(err, ErrNoModel) {
+		t.Fatalf("err = %v, want ErrNoModel", err)
+	}
+	if d := time.Since(start); d > 500*time.Millisecond {
+		t.Errorf("took %v, want the overall deadline to stop it", d)
 	}
 }
