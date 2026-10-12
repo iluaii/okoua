@@ -107,4 +107,11 @@ AI mode (`/ai/?news=<id>`) shows the post, a short summary and three follow-up q
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE).
+Copyright (C) 2026 iluaii
+
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU Affero General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+Data sources keep their own licenses: oblast boundaries © OpenStreetMap contributors (ODbL), see
+`data/geo/README.md`; power schedules are credited in the site's settings.
