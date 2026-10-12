@@ -16,8 +16,13 @@ import (
 
 const heartbeatEvery = 20 * time.Second
 
-func New(h *hub.Hub, p *power.Service, staticDir string) http.Handler {
+// New builds the HTTP handler. feedback may be nil to disable POST /api/feedback.
+func New(h *hub.Hub, p *power.Service, feedback http.Handler, staticDir string) http.Handler {
 	mux := http.NewServeMux()
+
+	if feedback != nil {
+		mux.Handle("POST /api/feedback", feedback)
+	}
 
 	mux.HandleFunc("GET /api/alerts", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

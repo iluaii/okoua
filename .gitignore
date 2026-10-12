@@ -3,6 +3,7 @@
 
 # Go
 /server/bin/
+/server/var/
 
 # web
 /web/node_modules/

@@ -63,6 +63,7 @@ cd web && npm run check
 - `GET /api/stream`: SSE; a full snapshot on connect and after every change.
 - `GET /api/power`: regions with power outage schedules.
 - `GET /api/power/{uid}`: today's and tomorrow's schedule for a region (404 if unsupported, 503 before the first fetch).
+- `POST /api/feedback`: anonymous feedback (JSON). Rate-limited per client and globally; no IP addresses are stored.
 - `GET /healthz`
 
 ## Power outage schedules
@@ -71,6 +72,16 @@ The server fetches schedules every 5 minutes (`server/internal/power/regions.go`
 
 - Kyiv city and Dnipropetrovsk oblast: the YASNO (DTEK) public API.
 - Kyiv, Chernihiv, Kharkiv and Poltava oblasts: community datasets [outage-data-ua](https://github.com/Baskerville42/outage-data-ua) and [OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA), credited on the site.
+
+## Feedback
+
+Feedback is stored in SQLite at `server/var/app.db` (see `DATA_DIR`) and deleted after 12 months. To read it:
+
+```sh
+cd server && go run ./cmd/feedback        # latest 50 entries; -n for more
+```
+
+The in-app limits protect the form and the database; protection against a real DDoS belongs at the reverse proxy or hosting level.
 
 ## Map
 

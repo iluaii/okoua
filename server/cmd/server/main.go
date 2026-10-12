@@ -13,11 +13,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"alert-concept/server/internal/alerts"
 	"alert-concept/server/internal/api"
+	"alert-concept/server/internal/feedback"
 	"alert-concept/server/internal/hub"
 	"alert-concept/server/internal/power"
 )
@@ -55,9 +57,26 @@ func run(log *slog.Logger) error {
 	p := power.NewService(power.DefaultRegions(), powerInterval, log)
 	go p.Run(ctx)
 
+	dataDir := env("DATA_DIR", "var")
+	if err := os.MkdirAll(dataDir, 0o750); err != nil {
+		return err
+	}
+	store, err := feedback.Open(filepath.Join(dataDir, "app.db"))
+	if err != nil {
+		return err
+	}
+	defer store.Close()
+	go pruneFeedback(ctx, store, log)
+	fb := &feedback.Handler{
+		Store:      store,
+		Limiter:    feedback.DefaultLimiter(),
+		TrustProxy: os.Getenv("TRUST_PROXY") == "1",
+		Log:        log,
+	}
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(h, p, os.Getenv("STATIC_DIR")),
+		Handler:           api.New(h, p, fb, os.Getenv("STATIC_DIR")),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// Request contexts are cancelled on shutdown; otherwise open SSE connections would block Shutdown.
@@ -101,6 +120,26 @@ func source(log *slog.Logger) (alerts.Source, error) {
 		return alerts.NewMock(), nil
 	default:
 		return nil, fmt.Errorf("ALERTS_SOURCE: unknown source %q (want alertsinua or mock)", name)
+	}
+}
+
+// feedbackRetention is how long feedback is kept; the privacy policy must match it.
+const feedbackRetention = 365 * 24 * time.Hour
+
+func pruneFeedback(ctx context.Context, store *feedback.Store, log *slog.Logger) {
+	t := time.NewTicker(24 * time.Hour)
+	defer t.Stop()
+	for {
+		if n, err := store.Prune(ctx, feedbackRetention); err != nil {
+			log.Warn("feedback prune failed", "err", err)
+		} else if n > 0 {
+			log.Info("feedback pruned", "deleted", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
 	}
 }
 

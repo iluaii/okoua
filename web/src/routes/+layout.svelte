@@ -5,10 +5,13 @@
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { feed } from '#lib/feed.svelte.ts';
+	import FeedbackDialog from '#lib/components/FeedbackDialog.svelte';
 
 	let { children } = $props();
 
 	onMount(() => feed.start());
+
+	let feedback = $state<ReturnType<typeof FeedbackDialog>>();
 
 	const trim = (p: string) => p.replace(/\/$/, '') || '/';
 
@@ -33,8 +36,15 @@
 		<span class="status {feed.status.kind}" title={feed.status.detail}>
 			<span class="dot" aria-hidden="true"></span>{feed.status.short}
 		</span>
+		<button class="feedback" onclick={() => feedback?.open()} aria-label="Надіслати відгук" title="Відгук">
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M4 5h16v11H9l-5 4zM8 9h8M8 12.5h5" /></svg
+			>
+		</button>
 	</div>
 </header>
+
+<FeedbackDialog bind:this={feedback} />
 
 <main>
 	{@render children()}
@@ -108,6 +118,30 @@
 	}
 	.warn .dot {
 		background: #e0a100;
+	}
+	.feedback {
+		display: grid;
+		place-items: center;
+		width: 36px;
+		height: 36px;
+		margin-right: -6px;
+		border: 0;
+		border-radius: 10px;
+		background: transparent;
+		color: var(--text);
+		cursor: pointer;
+	}
+	.feedback:hover {
+		background: var(--surface-2);
+	}
+	.feedback svg {
+		width: 22px;
+		height: 22px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.8;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 	.mock {
 		padding: 4px 10px;
