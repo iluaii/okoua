@@ -28,6 +28,12 @@
 			Сервіс доповнює офіційні джерела, а не замінює їх: завжди реагуйте на сирени та офіційний застосунок
 			«Повітряна тривога».
 		</p>
+		{#if project.homeHosted}
+			<p class="hosting">
+				⚡ Сайт працює на моєму старому ноутбуці. Під час відключень світла він може якийсь час не працювати, а
+				сповіщення можуть запізнюватися. Вибачте за це! Зібрані кошти підуть на нормальний сервер.
+			</p>
+		{/if}
 		{#if project.repoUrl}
 			<p><a href={project.repoUrl} target="_blank" rel="noopener">Відкритий код проєкту →</a></p>
 		{/if}
@@ -192,6 +198,15 @@
 	}
 	.about p {
 		margin: 8px 0;
+	}
+	.hosting {
+		padding: 12px 14px;
+		border-radius: 12px;
+		background: var(--warn-bg);
+		color: var(--warn-text);
+		font-size: 1.05rem;
+		font-weight: 600;
+		line-height: 1.4;
 	}
 	.support {
 		margin-top: 14px;

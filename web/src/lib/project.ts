@@ -15,6 +15,9 @@ export const project = {
 	/** Public source code, once the repository is published. */
 	repoUrl: '',
 
+	/** The server runs on the author's laptop at home: show a notice about downtime during outages. */
+	homeHosted: true,
+
 	/**
 	 * Where people can support the project. Example:
 	 * { label: 'Банка Monobank', url: 'https://send.monobank.ua/jar/…', note: 'Сервер та ШІ' }
