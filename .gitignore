@@ -1,4 +1,7 @@
+# Secrets: every env file except the documented example
 .env
+.env.*
+!.env.example
 *.local
 
 # Go
@@ -16,4 +19,4 @@
 /notes/
 
 # Server backups made by deploy/backup.sh (they hold the push keys)
-/backups/
+/backups

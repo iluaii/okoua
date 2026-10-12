@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # runit service: the alert-concept server, as the unprivileged user "alert".
 exec 2>&1
 cd /opt/alert-concept || exit 1
