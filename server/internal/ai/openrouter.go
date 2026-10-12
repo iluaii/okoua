@@ -51,8 +51,10 @@ type message struct {
 }
 
 type chatResponse struct {
+	Model   string `json:"model"`
 	Choices []struct {
-		Message message `json:"message"`
+		Message      message `json:"message"`
+		FinishReason string  `json:"finish_reason"`
 	} `json:"choices"`
 	Error *struct {
 		Message string `json:"message"`
@@ -95,6 +97,9 @@ func (o *OpenRouter) complete(ctx context.Context, model, prompt string) (string
 	}
 	if resp.StatusCode != http.StatusOK || len(cr.Choices) == 0 {
 		return "", fmt.Errorf("%s: %s: no answer", model, resp.Status)
+	}
+	if c := cr.Choices[0]; c.Message.Content == "" {
+		return "", fmt.Errorf("%s (via %s): empty answer, finish_reason=%s", model, cr.Model, c.FinishReason)
 	}
 	return cr.Choices[0].Message.Content, nil
 }

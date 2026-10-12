@@ -175,3 +175,9 @@ func TestAskDeadline(t *testing.T) {
 		t.Errorf("took %v, want the overall deadline to stop it", d)
 	}
 }
+
+func TestRouterTriedTwice(t *testing.T) {
+	if got := strings.Join((&Asker{models: []string{"a", Router}}).attempts(), ","); got != "a,"+Router+","+Router {
+		t.Errorf("attempts = %s", got)
+	}
+}

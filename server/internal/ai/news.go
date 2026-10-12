@@ -66,7 +66,7 @@ func (a *Asker) Ask(ctx context.Context, post Post, question string, asked []str
 		ctx, cancel = context.WithTimeout(ctx, a.deadline)
 		defer cancel()
 	}
-	for _, model := range a.models {
+	for _, model := range a.attempts() {
 		if ctx.Err() != nil {
 			break
 		}
@@ -93,6 +93,23 @@ func (a *Asker) Ask(ctx context.Context, post Post, question string, asked []str
 		return ans, nil
 	}
 	return Answer{}, ErrNoModel
+}
+
+// Router is OpenRouter's free-model router: it sends each request to some free model that is
+// available right now, so it almost always answers, though the model varies.
+const Router = "openrouter/free"
+
+// attempts lists the models to try in order. The router is tried twice: it picks a model
+// anew each time, so a bad or empty answer from one is often fixed by the next.
+func (a *Asker) attempts() []string {
+	var out []string
+	for _, m := range a.models {
+		out = append(out, m)
+		if m == Router {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 func (a *Asker) call(ctx context.Context, model, prompt string) (string, error) {
