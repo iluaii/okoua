@@ -95,8 +95,10 @@ func run(log *slog.Logger) error {
 		subject = "https://localhost"
 		log.Warn("VAPID_SUBJECT is not set; set it to a contact URL or e-mail before deploying")
 	}
-	notifier := push.NewNotifier(pushStore, push.WebPushSender(keys, subject), log)
+	sender := push.WebPushSender(keys, subject)
+	notifier := push.NewNotifier(pushStore, sender, log)
 	h.OnChange(notifier.Changed)
+	go push.NewPowerNotifier(pushStore, p, sender, log).Run(ctx)
 	recorder, err := history.NewRecorder(db, log)
 	if err != nil {
 		return err
@@ -104,7 +106,7 @@ func run(log *slog.Logger) error {
 	h.OnState(recorder.Sync)
 	go notifier.Run(ctx)
 	go h.Run(ctx)
-	pushHandler := &push.Handler{Store: pushStore, PublicKey: keys.Public, Limiter: push.NewLimiter(), TrustProxy: trustProxy, Log: log}
+	pushHandler := &push.Handler{Store: pushStore, PublicKey: keys.Public, Limiter: push.NewLimiter(), TrustProxy: trustProxy, Log: log, Power: p}
 
 	newsService, err := news.NewService(db, news.DefaultSources(), 5*time.Minute, log)
 	if err != nil {

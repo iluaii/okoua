@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package push stores Web Push subscriptions per region and notifies subscribers
-// when an alert starts or ends in their regions.
+// when an alert starts or ends in their regions, and before planned power outages.
 package push
 
 import (
@@ -14,13 +14,15 @@ import (
 	"time"
 )
 
-// Subscription is a browser's push endpoint plus the regions it follows.
-// The endpoint is an opaque, browser-issued URL; we store nothing else about the user.
+// Subscription is a browser's push endpoint plus the regions it follows for alerts and
+// the queues it follows for power outages. The endpoint is an opaque, browser-issued URL;
+// we store nothing else about the user.
 type Subscription struct {
 	Endpoint string
 	P256dh   string
 	Auth     string
 	Regions  []int
+	Power    []PowerRule
 }
 
 type Store struct {
@@ -41,6 +43,22 @@ CREATE TABLE IF NOT EXISTS push_regions (
 	PRIMARY KEY (endpoint, region)
 );
 CREATE INDEX IF NOT EXISTS push_regions_region ON push_regions (region);
+CREATE TABLE IF NOT EXISTS push_power (
+	endpoint   TEXT    NOT NULL REFERENCES push_subscriptions (endpoint) ON DELETE CASCADE,
+	region     INTEGER NOT NULL,
+	queue      TEXT    NOT NULL,
+	before_off INTEGER NOT NULL,
+	before_on  INTEGER NOT NULL,
+	PRIMARY KEY (endpoint, region)
+);
+CREATE INDEX IF NOT EXISTS push_power_queue ON push_power (region, queue);
+-- Power messages already sent, so each is sent once even across restarts.
+CREATE TABLE IF NOT EXISTS push_power_sent (
+	endpoint TEXT NOT NULL REFERENCES push_subscriptions (endpoint) ON DELETE CASCADE,
+	event    TEXT NOT NULL,
+	sent_at  TEXT NOT NULL,
+	PRIMARY KEY (endpoint, event)
+);
 `
 
 // NewStore creates the tables if needed. The caller owns db (opened with foreign keys on).
@@ -51,7 +69,7 @@ func NewStore(db *sql.DB) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// Save creates or replaces a subscription and its regions.
+// Save creates or replaces a subscription, its regions and power rules.
 func (s *Store) Save(ctx context.Context, sub Subscription) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -73,10 +91,62 @@ func (s *Store) Save(ctx context.Context, sub Subscription) error {
 			return err
 		}
 	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM push_power WHERE endpoint = ?`, sub.Endpoint); err != nil {
+		return err
+	}
+	for _, p := range sub.Power {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO push_power (endpoint, region, queue, before_off, before_on) VALUES (?, ?, ?, ?, ?)`,
+			sub.Endpoint, p.Region, p.Queue, p.BeforeOff, p.BeforeOn); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
 }
 
-// Delete removes a subscription and its regions.
+type powerSub struct {
+	sub  Subscription
+	rule PowerRule
+}
+
+// PowerFor returns the subscriptions that follow a queue, each with its rule.
+func (s *Store) PowerFor(ctx context.Context, region int, queue string) ([]powerSub, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT s.endpoint, s.p256dh, s.auth, p.before_off, p.before_on FROM push_subscriptions s
+		JOIN push_power p ON p.endpoint = s.endpoint WHERE p.region = ? AND p.queue = ?`, region, queue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []powerSub
+	for rows.Next() {
+		ps := powerSub{rule: PowerRule{Region: region, Queue: queue}}
+		if err := rows.Scan(&ps.sub.Endpoint, &ps.sub.P256dh, &ps.sub.Auth, &ps.rule.BeforeOff, &ps.rule.BeforeOn); err != nil {
+			return nil, err
+		}
+		out = append(out, ps)
+	}
+	return out, rows.Err()
+}
+
+// MarkSent records that event was sent to endpoint. It reports false if it already was.
+func (s *Store) MarkSent(ctx context.Context, endpoint, event string) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO push_power_sent (endpoint, event, sent_at) VALUES (?, ?, ?)`,
+		endpoint, event, time.Now().UTC().Format(time.RFC3339))
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+// PruneSent forgets sent events from before t.
+func (s *Store) PruneSent(ctx context.Context, t time.Time) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM push_power_sent WHERE sent_at < ?`, t.UTC().Format(time.RFC3339))
+	return err
+}
+
+// Delete removes a subscription with its regions and power rules.
 func (s *Store) Delete(ctx context.Context, endpoint string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM push_subscriptions WHERE endpoint = ?`, endpoint)
 	return err

@@ -35,6 +35,7 @@ type Handler struct {
 	Limiter    *ratelimit.Limiter
 	TrustProxy bool
 	Log        *slog.Logger
+	Power      Schedules // nil: power rules are refused
 }
 
 // Register adds the push routes to mux.
@@ -54,7 +55,8 @@ type subscribeRequest struct {
 			Auth   string `json:"auth"`
 		} `json:"keys"`
 	} `json:"subscription"`
-	Regions []int `json:"regions"`
+	Regions []int       `json:"regions"`
+	Power   []PowerRule `json:"power"`
 }
 
 func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +86,22 @@ func (h *Handler) subscribe(w http.ResponseWriter, r *http.Request) {
 			sub.Regions = append(sub.Regions, uid)
 		}
 	}
-	if len(sub.Regions) == 0 {
+	if len(req.Power) > len(alerts.Regions) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "too many rules"})
+		return
+	}
+	for _, p := range req.Power {
+		if err := checkRule(p, h.Power); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if slices.ContainsFunc(sub.Power, func(q PowerRule) bool { return q.Region == p.Region }) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "one queue per region"})
+			return
+		}
+		sub.Power = append(sub.Power, p)
+	}
+	if len(sub.Regions) == 0 && len(sub.Power) == 0 {
 		// Following nothing is the same as unsubscribing.
 		h.store(w, r, h.Store.Delete(r.Context(), sub.Endpoint))
 		return

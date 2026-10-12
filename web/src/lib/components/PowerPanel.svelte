@@ -5,6 +5,8 @@
 	import type { PowerDay, PowerLoad } from '#lib/power/types.ts';
 	import { hhmm, hoursOff, kyivNow, powerAt } from '#lib/power/schedule.ts';
 	import PowerTimeline from './PowerTimeline.svelte';
+	import PowerAlerts from './PowerAlerts.svelte';
+	import { follows } from '#lib/push.svelte.ts';
 
 	interface Props {
 		region: MapRegion;
@@ -30,6 +32,9 @@
 	});
 	function pick(q: string) {
 		queue = q;
+		// Warnings follow the chosen queue.
+		const rule = follows.powerRule(region.uid);
+		if (rule && rule.queue !== q) follows.setPower(region.uid, { ...rule, queue: q });
 		try {
 			localStorage.setItem(storageKey, q);
 		} catch {
@@ -136,6 +141,10 @@
 			{:else}
 				<p class="note">{dayNote(schedule.tomorrow)}</p>
 			{/if}
+		{/if}
+
+		{#if myQueue}
+			<PowerAlerts region={region.uid} queue={myQueue} />
 		{/if}
 
 		{#if today?.status === 'schedule'}
