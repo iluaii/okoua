@@ -3,6 +3,7 @@
 	import { follows } from '#lib/push.svelte.ts';
 	import { install } from '#lib/install.svelte.ts';
 	import { regions } from '#lib/map/regions.ts';
+	import { project } from '#lib/project.ts';
 
 	const names = new Map(regions.map((r) => [r.uid, r.name]));
 </script>
@@ -13,6 +14,49 @@
 
 <div class="page">
 	<h1>Налаштування</h1>
+
+	<section class="about" aria-labelledby="about-title">
+		<h2 id="about-title">Про проєкт</h2>
+		<p>
+			Концепт збирає в одному місці те, що зазвичай розкидано по десятках каналів і сайтів: карту повітряних тривог,
+			графіки відключень світла та новини вашої області з коротким переказом від ШІ.
+		</p>
+		<p>
+			Це некомерційний проєкт з відкритим кодом. Тут немає реклами, ми не збираємо персональних даних і нічого не продаємо.
+			Сервіс доповнює офіційні джерела, а не замінює їх: завжди реагуйте на сирени та офіційний застосунок
+			«Повітряна тривога».
+		</p>
+		{#if project.repoUrl}
+			<p><a href={project.repoUrl} target="_blank" rel="noopener">Відкритий код проєкту →</a></p>
+		{/if}
+
+		<div class="support">
+			<h3>Підтримати проєкт</h3>
+			<p class="muted small">
+				Сервіс безкоштовний для всіх, і підтримка не дає жодних переваг: усі бачать те саме. Внески покривають:
+			</p>
+			<ul class="costs">
+				{#each project.costs as c (c)}
+					<li>{c}</li>
+				{/each}
+			</ul>
+			{#if project.support.length > 0}
+				<div class="links">
+					{#each project.support as link (link.url)}
+						<a class="support-link" href={link.url} target="_blank" rel="noopener">
+							<span>{link.label}</span>
+							{#if link.note}<small>{link.note}</small>{/if}
+						</a>
+					{/each}
+				</div>
+			{:else}
+				<p class="muted small">Можливість підтримати з'явиться найближчим часом.</p>
+			{/if}
+			{#if project.reportUrl}
+				<p class="small"><a href={project.reportUrl} target="_blank" rel="noopener">Звіт: скільки зібрано і на що витрачено →</a></p>
+			{/if}
+		</div>
+	</section>
 
 	<h2>Сповіщення</h2>
 	{#if follows.regions.length === 0}
@@ -46,12 +90,6 @@
 		<p class="muted">Сайт можна встановити як застосунок через меню браузера («Встановити» або «Додати на головний екран»).</p>
 	{/if}
 
-	<h2>Про сервіс</h2>
-	<p>
-		Сервіс доповнює офіційні джерела тривог, а не замінює їх. Сповіщення в браузері можуть
-		запізнюватися, тому завжди реагуйте на сирени та офіційний застосунок «Повітряна тривога».
-	</p>
-
 	<h2>Приватність</h2>
 	<p>
 		Сайт не просить реєстрації і не збирає даних про вас. Відгуки анонімні: зберігаються лише категорія, текст,
@@ -77,6 +115,49 @@
 	h2 {
 		font-size: 1.05rem;
 		margin: 20px 0 6px;
+	}
+	.about {
+		padding: 4px 16px 16px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: var(--surface);
+	}
+	.about p {
+		margin: 8px 0;
+	}
+	.support {
+		margin-top: 14px;
+		padding-top: 12px;
+		border-top: 1px solid var(--border);
+	}
+	h3 {
+		margin: 0 0 4px;
+		font-size: 1rem;
+	}
+	.costs {
+		margin: 6px 0 10px;
+		padding-left: 20px;
+		font-size: 0.9rem;
+	}
+	.links {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: 8px;
+		margin: 10px 0;
+	}
+	.support-link {
+		display: grid;
+		gap: 2px;
+		padding: 10px 14px;
+		border-radius: 12px;
+		background: var(--accent);
+		color: #fff;
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.support-link small {
+		font-weight: 400;
+		opacity: 0.85;
 	}
 	.small {
 		font-size: 0.85rem;
