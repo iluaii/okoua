@@ -1,4 +1,4 @@
-# Air-raid alert map (working title)
+# Око (okoua.pp.ua)
 
 A web app (PWA) for Ukraine that brings air-raid alerts, power outage schedules and regional news together in one place. The interface is in Ukrainian.
 

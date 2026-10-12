@@ -40,7 +40,7 @@
 
 <!-- Full-width header; below it either the full-screen map or a tablet-width column. -->
 <header class="top">
-	<a class="brand" href={resolve('/')}>Концепт</a>
+	<a class="brand" href={resolve('/')}>Око</a>
 	<div class="right">
 		{#if feed.state?.source === 'mock'}
 			<span class="mock" title="Сервер працює на тестових даних">Тестові дані</span>
