@@ -7,7 +7,10 @@ import type { NewsItem } from './news/types.ts';
 
 export type ChatMessage =
 	| { role: 'user'; text: string }
-	| { role: 'ai'; text: string; model: string }
+	// question: 'summary' or the follow-up as asked; missing in chats saved before reports.
+	| { role: 'ai'; text: string; model: string; question?: string; reported?: boolean }
+	// An answer withheld after reports.
+	| { role: 'hidden' }
 	| { role: 'error'; text: string; retry?: string };
 
 export interface Chat {

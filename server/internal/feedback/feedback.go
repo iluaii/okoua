@@ -113,24 +113,24 @@ func validate(req request) (Entry, error) {
 	if !found {
 		return Entry{}, errors.New("bad subcategory")
 	}
-	msg := clean(req.Message, true)
+	msg := Clean(req.Message, true)
 	if utf8.RuneCountInString(msg) > MaxMessage {
 		return Entry{}, errors.New("message too long")
 	}
-	page := clean(req.Page, false)
+	page := Clean(req.Page, false)
 	if !strings.HasPrefix(page, "/") || len(page) > maxPage {
 		page = ""
 	}
-	version := clean(req.Version, false)
+	version := Clean(req.Version, false)
 	if len(version) > maxVersion {
 		version = ""
 	}
 	return Entry{Category: req.Category, Subcategory: req.Subcategory, Message: msg, Page: page, Version: version}, nil
 }
 
-// clean trims the text and drops control characters (which could, for example, inject
+// Clean trims the text and drops control characters (which could, for example, inject
 // terminal escape codes into whoever reads the feedback). Newlines are kept if multiline.
-func clean(s string, multiline bool) string {
+func Clean(s string, multiline bool) string {
 	s = strings.ToValidUTF8(s, "")
 	s = strings.Map(func(r rune) rune {
 		if r == '\n' && multiline {

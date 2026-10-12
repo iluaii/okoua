@@ -24,4 +24,6 @@ export interface AiAnswer {
 	questions: string[];
 	model: string;
 	cached: boolean;
+	/** People reported this answer: it is withheld, read the original instead. */
+	hidden?: boolean;
 }

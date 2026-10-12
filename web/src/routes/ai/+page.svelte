@@ -9,7 +9,7 @@
 	import { resolve } from '$app/paths';
 	import type { AiAnswer, NewsItem } from '#lib/news/types.ts';
 	import { formatDuration } from '#lib/format.ts';
-	import { feedbackDialog } from '#lib/feedback.svelte.ts';
+	import ReportAnswer from '#lib/components/ReportAnswer.svelte';
 	import { listChats, loadChat, removeChat, saveChat, type Chat, type ChatMessage as Message } from '#lib/chats.ts';
 	import { feed } from '#lib/feed.svelte.ts';
 	import { myRegion, regionsByName } from '#lib/myregion.svelte.ts';
@@ -133,9 +133,13 @@
 			});
 			if (res.ok) {
 				const a = (await res.json()) as AiAnswer;
-				messages.push({ role: 'ai', text: a.answer, model: a.model });
-				// Keep the suggestions fresh: the model avoids questions already asked.
-				suggestions = a.questions.filter((q) => !asked.includes(q));
+				if (a.hidden) {
+					messages.push({ role: 'hidden' });
+				} else {
+					messages.push({ role: 'ai', text: a.answer, model: a.model, question });
+					// Keep the suggestions fresh: the model avoids questions already asked.
+					suggestions = a.questions.filter((q) => !asked.includes(q));
+				}
 			} else {
 				const body = (await res.json().catch(() => ({}))) as { error?: string };
 				messages.push({ role: 'error', text: errorText(res.status, body.error), retry: res.status === 502 || res.status === 429 ? question : undefined });
@@ -159,6 +163,26 @@
 		if (status === 503 && error === 'daily limit') return 'Ліміт запитів до ШІ на сьогодні вичерпано. Читайте оригінал за посиланням.';
 		if (status === 503 && error === 'ai disabled') return 'ШІ зараз вимкнено.';
 		return 'ШІ зараз не відповідає. Читайте оригінал за посиланням.';
+	}
+
+	/** The question an answer replied to; older saved chats only have it in the message before. */
+	function questionOf(i: number): string {
+		const m = messages[i];
+		if (m.role === 'ai' && m.question) return m.question;
+		const prev = messages[i - 1];
+		const text = prev?.role === 'user' ? prev.text : '';
+		return text === 'Короткий переказ' ? 'summary' : text;
+	}
+
+	function markReported(i: number) {
+		const m = messages[i];
+		if (m.role === 'ai') m.reported = true;
+		persist();
+	}
+
+	function hide(i: number) {
+		messages[i] = { role: 'hidden' };
+		persist();
 	}
 
 	function scrollDown() {
@@ -260,8 +284,21 @@
 					<div class="bubble ai">
 						<span class="who">✨ ШІ</span>
 						<p>{m.text}</p>
-						<button class="report" onclick={() => feedbackDialog.open?.('ai', 'hallucination')}>Поскаржитися на відповідь</button>
+						{#if newsId}
+							<ReportAnswer
+								{newsId}
+								question={questionOf(i)}
+								reported={m.reported ?? false}
+								onreported={() => markReported(i)}
+								onhidden={() => hide(i)}
+							/>
+						{/if}
 					</div>
+				{:else if m.role === 'hidden'}
+					<p class="bubble hidden">
+						Відповідь приховано: користувачі повідомили, що в ній помилка.
+						<a href={item.url} target="_blank" rel="noopener">Читайте оригінал</a>.
+					</p>
 				{:else}
 					<div class="bubble error">
 						<p>{m.text}</p>
@@ -516,16 +553,15 @@
 		font-size: 0.85rem;
 		cursor: pointer;
 	}
-	.report {
+	.hidden {
 		justify-self: start;
-		padding: 0;
-		border: 0;
-		background: transparent;
+		border-bottom-left-radius: 4px;
+		background: var(--surface-2);
 		color: var(--muted);
-		font: inherit;
-		font-size: 0.75rem;
-		text-decoration: underline;
-		cursor: pointer;
+		font-size: 0.9rem;
+	}
+	.hidden a {
+		color: var(--text);
 	}
 	.suggestions {
 		display: flex;

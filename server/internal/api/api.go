@@ -26,7 +26,7 @@ type Options struct {
 	Push      interface{ Register(*http.ServeMux) }
 	News      interface{ Register(*http.ServeMux) }
 	History   interface{ Register(*http.ServeMux) }
-	AI        http.Handler // nil: AI is disabled (no API key)
+	AI        interface{ Register(*http.ServeMux) } // nil: AI is disabled (no API key)
 	StaticDir string
 }
 
@@ -47,11 +47,13 @@ func New(o Options) http.Handler {
 		o.History.Register(mux)
 	}
 	if o.AI != nil {
-		mux.Handle("POST /api/ai/news", o.AI)
+		o.AI.Register(mux)
 	} else {
-		mux.HandleFunc("POST /api/ai/news", func(w http.ResponseWriter, r *http.Request) {
+		disabled := func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "ai disabled"})
-		})
+		}
+		mux.HandleFunc("POST /api/ai/news", disabled)
+		mux.HandleFunc("POST /api/ai/report", disabled)
 	}
 
 	mux.HandleFunc("GET /api/alerts", func(w http.ResponseWriter, r *http.Request) {

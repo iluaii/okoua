@@ -176,7 +176,7 @@ func source(log *slog.Logger) (alerts.Source, error) {
 const defaultAIModels = "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:free," + ai.Router
 
 // newAI returns the AI handler, or nil (AI disabled) when OPENROUTER_API_KEY is not set.
-func newAI(ctx context.Context, db *sql.DB, ns *news.Service, trustProxy bool, log *slog.Logger) (http.Handler, error) {
+func newAI(ctx context.Context, db *sql.DB, ns *news.Service, trustProxy bool, log *slog.Logger) (interface{ Register(*http.ServeMux) }, error) {
 	key := os.Getenv("OPENROUTER_API_KEY")
 	if key == "" {
 		log.Warn("OPENROUTER_API_KEY is not set: AI answers are disabled")

@@ -18,10 +18,10 @@ import (
 
 func TestClean(t *testing.T) {
 	in := "  hi\x1b[31mred\x07\tthere\nline2‎  "
-	if got := clean(in, true); got != "hi[31mred there\nline2" {
+	if got := Clean(in, true); got != "hi[31mred there\nline2" {
 		t.Errorf("clean = %q", got)
 	}
-	if got := clean("a\nb", false); got != "ab" {
+	if got := Clean("a\nb", false); got != "ab" {
 		t.Errorf("single line = %q", got)
 	}
 }

@@ -51,6 +51,9 @@ type Handler struct {
 	trustProxy bool
 	log        *slog.Logger
 
+	reportLimiter *ratelimit.Limiter
+	reportOnce    *ratelimit.Limiter
+
 	// DailyLimit caps model calls per UTC day (free models have small daily quotas).
 	dailyLimit int
 	mu         sync.Mutex
@@ -60,11 +63,18 @@ type Handler struct {
 }
 
 func NewHandler(db *sql.DB, asker *Asker, lookup Lookup, dailyLimit int, trustProxy bool, log *slog.Logger) (*Handler, error) {
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := db.Exec(schema + reportSchema); err != nil {
 		return nil, fmt.Errorf("ai: schema: %w", err)
 	}
+	all, once := newReportLimiters()
 	return &Handler{db: db, asker: asker, lookup: lookup, limiter: NewLimiter(), trustProxy: trustProxy,
-		log: log, dailyLimit: dailyLimit, inflight: map[string]*sync.Mutex{}}, nil
+		log: log, reportLimiter: all, reportOnce: once, dailyLimit: dailyLimit, inflight: map[string]*sync.Mutex{}}, nil
+}
+
+// Register adds POST /api/ai/news and POST /api/ai/report.
+func (h *Handler) Register(mux *http.ServeMux) {
+	mux.Handle("POST /api/ai/news", h)
+	mux.HandleFunc("POST /api/ai/report", h.report)
 }
 
 type request struct {
@@ -78,6 +88,9 @@ type response struct {
 	Questions []string `json:"questions"`
 	Model     string   `json:"model"`
 	Cached    bool     `json:"cached"`
+	// Hidden: people reported this answer, so it is withheld (Answer and Questions are
+	// empty) and the client points to the original post instead.
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -173,17 +186,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) cached(ctx context.Context, newsID, question string) (response, bool, error) {
 	var res response
-	var qs string
-	err := h.db.QueryRowContext(ctx, `SELECT answer, questions, model FROM ai_answers WHERE news_id = ? AND question = ?`,
-		newsID, question).Scan(&res.Answer, &qs, &res.Model)
+	var qs, created string
+	err := h.db.QueryRowContext(ctx, `SELECT answer, questions, model, created_at FROM ai_answers WHERE news_id = ? AND question = ?`,
+		newsID, question).Scan(&res.Answer, &qs, &res.Model, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return response{}, false, nil
 	}
 	if err != nil {
 		return response{}, false, err
 	}
-	json.Unmarshal([]byte(qs), &res.Questions)
 	res.Cached = true
+	// A hidden answer stays hidden until it is pruned; it is not regenerated, since
+	// another model would likely misread the same post the same way.
+	n, err := h.reportCount(ctx, newsID, question, created)
+	if err != nil {
+		return response{}, false, err
+	}
+	if n >= HideAfter {
+		res.Answer, res.Hidden = "", true
+		return res, true, nil
+	}
+	json.Unmarshal([]byte(qs), &res.Questions)
 	return res, true, nil
 }
 
@@ -250,10 +273,15 @@ func (h *Handler) lock(key string) *sync.Mutex {
 	return m
 }
 
-// Prune deletes cached answers older than maxAge (news itself is kept for a week).
+// Prune deletes cached answers older than maxAge (news itself is kept for a week)
+// and reports older than a year.
 func (h *Handler) Prune(ctx context.Context, maxAge time.Duration) error {
-	_, err := h.db.ExecContext(ctx, `DELETE FROM ai_answers WHERE created_at < ?`,
-		time.Now().UTC().Add(-maxAge).Format(time.RFC3339))
+	now := time.Now().UTC()
+	_, err := h.db.ExecContext(ctx, `DELETE FROM ai_answers WHERE created_at < ?`, now.Add(-maxAge).Format(time.RFC3339))
+	if _, err2 := h.db.ExecContext(ctx, `DELETE FROM ai_reports WHERE created_at < ?`,
+		now.Add(-reportRetention).Format(time.RFC3339)); err == nil {
+		err = err2
+	}
 	// Drop per-question locks nobody holds, so the map doesn't grow forever.
 	h.mu.Lock()
 	for k, m := range h.inflight {
