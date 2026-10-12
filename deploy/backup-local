@@ -1,0 +1,10 @@
+#!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Installed on the server laptop as /usr/local/sbin/alert-concept-backup (root-owned; run via sudo).
+# Writes a tar.gz with a consistent copy of the database and the push keys to stdout.
+set -eu
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+sqlite3 /opt/alert-concept/var/app.db ".backup '$tmp/app.db'"
+cp /opt/alert-concept/var/vapid.json "$tmp/"
+tar -C "$tmp" -czf - app.db vapid.json

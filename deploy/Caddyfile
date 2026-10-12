@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Caddy in front of the server: HTTPS (Let's Encrypt, renewed automatically) and security headers.
+# setup.sh installs it as /etc/alert-concept/Caddyfile with the real domain in place of DOMAIN.
+
+DOMAIN {
+	# Compress everything except the live alert stream, which must not be buffered.
+	@compress not path /api/stream
+	encode @compress zstd gzip
+
+	reverse_proxy 127.0.0.1:8080
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		X-Frame-Options DENY
+		-Server
+	}
+}

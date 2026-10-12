@@ -1,0 +1,6 @@
+#!/bin/sh
+# runit service: Caddy for alert-concept, as the unprivileged user "alertweb".
+# Binding ports 80 and 443 without root is allowed by /etc/sysctl.d/alert-caddy.conf.
+exec 2>&1
+export HOME=/var/lib/alert-caddy XDG_DATA_HOME=/var/lib/alert-caddy XDG_CONFIG_HOME=/var/lib/alert-caddy
+exec chpst -u alertweb:alertweb caddy run --config /etc/alert-concept/Caddyfile --adapter caddyfile

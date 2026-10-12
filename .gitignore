@@ -14,3 +14,6 @@
 
 # Personal notes (Russian), kept out of the repo
 /notes/
+
+# Server backups made by deploy/backup.sh (they hold the push keys)
+/backups/

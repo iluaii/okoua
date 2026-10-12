@@ -1,0 +1,10 @@
+#!/bin/sh
+# runit service: the alert-concept server, as the unprivileged user "alert".
+exec 2>&1
+cd /opt/alert-concept || exit 1
+# Before the first deploy there is nothing to run; check again in a minute instead of spinning.
+[ -x bin/server ] || { echo "no bin/server yet, run deploy/deploy.sh"; sleep 60; exit 1; }
+set -a
+. /etc/alert-concept/env
+set +a
+exec chpst -u alert:alert ./bin/server
