@@ -1,0 +1,15 @@
+.env
+*.local
+
+# Go
+/server/bin/
+
+# web
+/web/node_modules/
+/web/.svelte-kit/
+/web/build/
+
+.DS_Store
+
+# Personal notes (Russian), kept out of the repo
+/notes/
