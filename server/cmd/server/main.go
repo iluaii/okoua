@@ -172,10 +172,10 @@ func source(log *slog.Logger) (alerts.Source, error) {
 	}
 }
 
-// Free OpenRouter models for testing, from different providers so one overloaded provider
-// doesn't take both down, then the free-model router as a last resort.
-// Switch to paid ones for the public launch via AI_MODELS.
-const defaultAIModels = "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:free," + ai.Router
+// Paid OpenRouter models: Qwen 3.7 Flash first (cheapest, about $0.00003 per summary),
+// then Gemma 4 when Qwen fails or its answer doesn't pass the checks. Free models
+// (":free", ai.Router) can be set via AI_MODELS for testing.
+const defaultAIModels = "qwen/qwen3.7-flash,google/gemma-4-26b-a4b-it"
 
 // newAI returns the AI handler, or nil (AI disabled) when OPENROUTER_API_KEY is not set.
 func newAI(ctx context.Context, db *sql.DB, ns *news.Service, trustProxy bool, log *slog.Logger) (interface{ Register(*http.ServeMux) }, error) {
@@ -190,7 +190,7 @@ func newAI(ctx context.Context, db *sql.DB, ns *news.Service, trustProxy bool, l
 			models = append(models, m)
 		}
 	}
-	limit, err := strconv.Atoi(env("AI_DAILY_LIMIT", "40"))
+	limit, err := strconv.Atoi(env("AI_DAILY_LIMIT", "1000"))
 	if err != nil || limit < 0 {
 		return nil, fmt.Errorf("AI_DAILY_LIMIT: need a number, got %q", os.Getenv("AI_DAILY_LIMIT"))
 	}

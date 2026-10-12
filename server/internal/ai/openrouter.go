@@ -38,8 +38,9 @@ type chatRequest struct {
 	Reasoning   reasoning `json:"reasoning"`
 }
 
-// reasoning asks reasoning models to think little and not return their thoughts:
-// reasoning tokens count against max_tokens and could leave no room for the answer.
+// reasoning turns thinking off. Retelling a short post doesn't need it, and thinking is
+// billed as output: measured 2026-10-12, even effort "low" spent 900-1500 tokens on it
+// (and left Qwen no room for the answer), while "none" gives the same answer 7-10x cheaper.
 type reasoning struct {
 	Effort  string `json:"effort"`
 	Exclude bool   `json:"exclude"`
@@ -69,8 +70,8 @@ func (o *OpenRouter) complete(ctx context.Context, model, prompt string) (string
 		// Everything goes in one user message: some models (Gemma) don't accept a system role.
 		Messages:    []message{{Role: "user", Content: prompt}},
 		Temperature: 0.2,
-		MaxTokens:   1500,
-		Reasoning:   reasoning{Effort: "low", Exclude: true},
+		MaxTokens:   800, // the answer is at most 900 characters plus three short questions
+		Reasoning:   reasoning{Effort: "none", Exclude: true},
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, o.URL, bytes.NewReader(body))
 	if err != nil {
