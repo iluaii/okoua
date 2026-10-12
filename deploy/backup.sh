@@ -10,6 +10,6 @@ host=${1:?usage: deploy/backup.sh user@laptop [directory]}
 dir=${2:-backups}
 mkdir -p "$dir"
 file="$dir/alert-concept-$(date +%Y-%m-%d_%H%M).tar.gz"
-ssh "$host" sudo /usr/local/sbin/alert-concept-backup >"$file.part"
+ssh "$host" sudo -n /usr/local/sbin/alert-concept-backup >"$file.part"
 mv "$file.part" "$file"
 echo "Saved $file"

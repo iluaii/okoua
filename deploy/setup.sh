@@ -17,7 +17,7 @@ id "$owner" >/dev/null
 echo "==> Packages"
 # xbps treats "already installed" as an error, so ask only for what is missing.
 missing=
-for p in caddy rsync sqlite sudo; do
+for p in caddy sqlite sudo; do
 	xbps-query "$p" >/dev/null 2>&1 || missing="$missing $p"
 done
 if [ -n "$missing" ]; then
@@ -73,14 +73,17 @@ grep -Eq '^[@#]includedir /etc/sudoers.d' /etc/sudoers ||
 # Check the file before putting it in place: a broken file in sudoers.d breaks sudo entirely.
 tmp=$(mktemp)
 cat >"$tmp" <<SUDO
-$owner ALL=(root) NOPASSWD: $(command -v sv) restart alert-concept, /usr/local/sbin/alert-concept-backup
+$owner ALL=(root) NOPASSWD: /usr/bin/sv restart alert-concept, /usr/sbin/sv restart alert-concept, /usr/local/sbin/alert-concept-backup
 SUDO
 if ! visudo -c -f "$tmp"; then
 	rm -f "$tmp"
 	echo "The sudo rule above is invalid; nothing was changed in /etc/sudoers.d." >&2
 	exit 1
 fi
-install -m 440 "$tmp" /etc/sudoers.d/alert-concept
+# sudo applies the last matching rule and reads sudoers.d in name order, so the file must
+# come after e.g. "wheel" (everything, with a password), or it would be overridden.
+rm -f /etc/sudoers.d/alert-concept
+install -m 440 "$tmp" /etc/sudoers.d/zz-alert-concept
 rm -f "$tmp"
 
 echo "==> Services"

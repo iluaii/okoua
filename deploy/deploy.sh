@@ -21,15 +21,20 @@ echo "==> Building the server"
 (cd server && CGO_ENABLED=0 GOOS=linux GOARCH="${GOARCH:-amd64}" go build -trimpath -ldflags='-s -w' -o "$out/server" ./cmd/server)
 
 echo "==> Uploading"
-rsync -a --delete web/build/ "$host:/opt/alert-concept/web.new/"
-rsync -a "$out/server" "$host:/opt/alert-concept/bin/server.new"
+# tar over ssh rather than rsync: nothing to install on either side. Remote commands go
+# through sh explicitly, since the login shell there may be something else (fish).
+tar -C web/build -cf - . | ssh "$host" "sh -c 'rm -rf /opt/alert-concept/web.new && mkdir /opt/alert-concept/web.new && tar -C /opt/alert-concept/web.new -xf -'"
+ssh "$host" "sh -c 'cat >/opt/alert-concept/bin/server.new && chmod 755 /opt/alert-concept/bin/server.new'" <"$out/server"
 
 echo "==> Switching to the new version"
-ssh "$host" 'set -e
+ssh "$host" sh -s <<'REMOTE'
+set -e
 cd /opt/alert-concept
 mv bin/server.new bin/server
 rm -rf web.old
 [ ! -d web ] || mv web web.old
 mv web.new web
-sudo sv restart alert-concept'
+# The exact path in the sudoers rule; -n fails instead of asking for a password.
+sudo -n /usr/sbin/sv restart alert-concept
+REMOTE
 echo "Done."
