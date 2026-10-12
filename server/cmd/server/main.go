@@ -147,7 +147,8 @@ func source(log *slog.Logger) (alerts.Source, error) {
 	token := os.Getenv("ALERTS_IN_UA_TOKEN")
 	name := os.Getenv("ALERTS_SOURCE")
 	if name == "" {
-		name = "mock"
+		// Without an alerts.in.ua token, use real data from siren.pp.ua rather than test data.
+		name = "sirenppua"
 		if token != "" {
 			name = "alertsinua"
 		}
@@ -158,11 +159,14 @@ func source(log *slog.Logger) (alerts.Source, error) {
 			return nil, errors.New("ALERTS_SOURCE=alertsinua requires ALERTS_IN_UA_TOKEN")
 		}
 		return alerts.NewAlertsInUA(token), nil
+	case "sirenppua":
+		log.Warn("using siren.pp.ua, a community wrapper of the Ukraine Alarm API, until an alerts.in.ua token arrives")
+		return alerts.NewSiren(), nil
 	case "mock":
 		log.Warn("TEST DATA: using the mock source, alerts are not real")
 		return alerts.NewMock(), nil
 	default:
-		return nil, fmt.Errorf("ALERTS_SOURCE: unknown source %q (want alertsinua or mock)", name)
+		return nil, fmt.Errorf("ALERTS_SOURCE: unknown source %q (want alertsinua, sirenppua or mock)", name)
 	}
 }
 

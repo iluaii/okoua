@@ -25,14 +25,14 @@ The script also prints a LAN address for checking the site from a phone on the s
 Requires Go 1.27+ and Node 22.17+.
 
 ```sh
-# terminal 1: server on :8080 (runs on test data without a token)
+# terminal 1: server on :8080
 cd server && go run ./cmd/server
 
 # terminal 2: site on http://localhost:5173, /api is proxied to the server
 cd web && npm install && npm run dev
 ```
 
-Without an alerts.in.ua token the server uses a mock source with random alerts, and the site shows a «Тестові дані» (test data) badge. For faster updates while testing: `POLL_INTERVAL=5s go run ./cmd/server`.
+Without an alerts.in.ua token the server reads real alerts from [siren.pp.ua](https://siren.pp.ua), a keyless community wrapper of the official Ukraine Alarm API. It is a stopgap with no guarantees. For random test alerts (handy for push notifications) use `ALERTS_SOURCE=mock`; the site then shows a «Тестові дані» (test data) badge, and `POLL_INTERVAL=5s` speeds things up.
 
 With a token:
 

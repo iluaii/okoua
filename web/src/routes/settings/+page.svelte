@@ -5,6 +5,7 @@
 	import { regions } from '#lib/map/regions.ts';
 	import { project } from '#lib/project.ts';
 	import { myRegion, regionsByName } from '#lib/myregion.svelte.ts';
+	import { feed } from '#lib/feed.svelte.ts';
 
 	const names = new Map(regions.map((r) => [r.uid, r.name]));
 </script>
@@ -128,7 +129,13 @@
 
 	<h2>Джерела даних</h2>
 	<ul>
-		<li>Тривоги: <a href="https://alerts.in.ua" rel="noopener">alerts.in.ua</a></li>
+		{#if feed.state?.source === 'sirenppua'}
+			<li>
+				Тривоги: «Повітряна тривога» (Ukraine Alarm) через <a href="https://siren.pp.ua" rel="noopener">siren.pp.ua</a>
+			</li>
+		{:else}
+			<li>Тривоги: <a href="https://alerts.in.ua" rel="noopener">alerts.in.ua</a></li>
+		{/if}
 		<li>
 			Межі областей: © учасники <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>
 			(ODbL), через <a href="https://www.geoboundaries.org" rel="noopener">geoBoundaries</a>
