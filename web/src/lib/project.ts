@@ -13,7 +13,7 @@ export interface SupportLink {
 
 export const project = {
 	/** Public source code, once the repository is published. */
-	repoUrl: '',
+	repoUrl: 'https://github.com/iluaii/okoua',
 
 	/** The server runs on the author's laptop at home: show a notice about downtime during outages. */
 	homeHosted: true,
