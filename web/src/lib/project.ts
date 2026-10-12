@@ -25,5 +25,12 @@ export const project = {
 	costs: ['Сервер і домен', 'Запити до ШІ для переказів новин', 'Час на підтримку та нові області'],
 
 	/** Optional public report of income and spending (a page, a table, a post). */
-	reportUrl: ''
+	reportUrl: '',
+
+	/**
+	 * Thanks wall: supporters who agreed to be named. Add a name only with the person's
+	 * permission; people who want to stay anonymous are simply not listed. Example:
+	 * { name: 'Олена з Ніжина' } or { name: 'Компанія X', note: 'сервер на рік' }
+	 */
+	thanks: [] as { name: string; note?: string }[]
 };

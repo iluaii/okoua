@@ -56,6 +56,19 @@
 				<p class="small"><a href={project.reportUrl} target="_blank" rel="noopener">Звіт: скільки зібрано і на що витрачено →</a></p>
 			{/if}
 		</div>
+
+		{#if project.thanks.length > 0}
+			<div class="thanks">
+				<h3>Дякуємо</h3>
+				<p class="muted small">Тим, хто підтримав проєкт і погодився, щоб ми назвали їхнє ім'я.</p>
+				<ul>
+					{#each project.thanks as t, i (i)}
+						<li>{t.name}{#if t.note}&nbsp;<span class="muted">· {t.note}</span>{/if}</li>
+					{/each}
+				</ul>
+				<p class="muted small">І всім, хто підтримав анонімно.</p>
+			</div>
+		{/if}
 	</section>
 
 	<h2>Сповіщення</h2>
@@ -129,6 +142,25 @@
 		margin-top: 14px;
 		padding-top: 12px;
 		border-top: 1px solid var(--border);
+	}
+	.thanks {
+		margin-top: 14px;
+		padding-top: 12px;
+		border-top: 1px solid var(--border);
+	}
+	.thanks ul {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 8px 0;
+		padding: 0;
+		list-style: none;
+	}
+	.thanks li {
+		padding: 4px 10px;
+		border-radius: 999px;
+		background: var(--surface-2);
+		font-size: 0.85rem;
 	}
 	h3 {
 		margin: 0 0 4px;
