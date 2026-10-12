@@ -40,3 +40,23 @@ export function formatDuration(iso: string, now: number): string {
 export function earliestStart(alerts: { startedAt: string }[]): string {
 	return alerts.reduce((min, a) => (a.startedAt < min ? a.startedAt : min), alerts[0].startedAt);
 }
+
+/** Minutes as «40 хв», «2 год 10 хв», «1 дн 3 год». */
+export function formatMinutes(minutes: number): string {
+	if (minutes < 1) return 'менше хвилини';
+	const d = Math.floor(minutes / 1440);
+	const h = Math.floor((minutes % 1440) / 60);
+	const m = minutes % 60;
+	if (d > 0) return h > 0 ? `${d} дн ${h} год` : `${d} дн`;
+	if (h > 0) return m > 0 ? `${h} год ${m} хв` : `${h} год`;
+	return `${m} хв`;
+}
+
+/** Ukrainian plural: plural(3, ['тривога', 'тривоги', 'тривог']) → «тривоги». */
+export function plural(n: number, forms: [string, string, string]): string {
+	const n10 = n % 10;
+	const n100 = n % 100;
+	if (n10 === 1 && n100 !== 11) return forms[0];
+	if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return forms[1];
+	return forms[2];
+}

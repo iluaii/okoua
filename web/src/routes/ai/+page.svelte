@@ -11,6 +11,31 @@
 	import { formatDuration } from '#lib/format.ts';
 	import { feedbackDialog } from '#lib/feedback.svelte.ts';
 	import { listChats, loadChat, removeChat, saveChat, type Chat, type ChatMessage as Message } from '#lib/chats.ts';
+	import { feed } from '#lib/feed.svelte.ts';
+	import { myRegion, regionsByName } from '#lib/myregion.svelte.ts';
+	import { answer, quickQuestions, type DataAnswer, type QuickId } from '#lib/quick.ts';
+
+	type QuickMessage = { role: 'user'; text: string } | { role: 'data'; answer: DataAnswer };
+	let quick = $state<QuickMessage[]>([]);
+	let quickBusy = $state(false);
+
+	async function askQuick(id: QuickId, label: string) {
+		const uid = myRegion.uid;
+		if (uid === null || quickBusy) return;
+		quickBusy = true;
+		quick.push({ role: 'user', text: label });
+		try {
+			quick.push({ role: 'data', answer: await answer(id, uid, feed.state, Date.now()) });
+		} finally {
+			quickBusy = false;
+		}
+	}
+
+	function pickRegion(e: Event) {
+		const v = Number((e.currentTarget as HTMLSelectElement).value);
+		myRegion.set(v || null);
+		quick = [];
+	}
 
 	let newsId = $state<string | null>(null);
 	let item = $state<NewsItem | null>(null);
@@ -150,7 +175,50 @@
 
 	{#if itemState === 'none'}
 		<h1>ШІ</h1>
-		<p>Тут ШІ допомагає розібратися в новинах вашої області: коротко переказує допис і відповідає на запитання про нього.</p>
+
+		<section class="quick" aria-labelledby="quick-title">
+			<h2 id="quick-title" class="section-title">Швидкі запитання</h2>
+			<label class="my-region">
+				<span>Моя область</span>
+				<select value={myRegion.uid ?? ''} onchange={pickRegion}>
+					<option value="" disabled>Оберіть область</option>
+					{#each regionsByName as r (r.uid)}
+						<option value={r.uid}>{r.name}</option>
+					{/each}
+				</select>
+			</label>
+
+			{#if quick.length > 0}
+				<div class="chat">
+					{#each quick as m, i (i)}
+						{#if m.role === 'user'}
+							<p class="bubble user">{m.text}</p>
+						{:else}
+							<div class="bubble ai data">
+								<span class="who">📊 За даними сервісу</span>
+								{#each m.answer.lines as line, j (j)}
+									<p class="line {line.tone ?? ''}">
+										{#if line.href}<a href={line.href} target="_blank" rel="noopener">{line.text}</a>{:else}{line.text}{/if}
+									</p>
+								{/each}
+							</div>
+						{/if}
+					{/each}
+				</div>
+			{/if}
+
+			<div class="suggestions">
+				{#each quickQuestions as q (q.id)}
+					<button disabled={myRegion.uid === null || quickBusy} onclick={() => askQuick(q.id, q.label)}>{q.label}</button>
+				{/each}
+			</div>
+			{#if myRegion.uid === null}
+				<p class="muted small">Оберіть свою область, щоб отримувати відповіді.</p>
+			{/if}
+		</section>
+
+		<h2 class="section-title">Новини з ШІ</h2>
+		<p>ШІ коротко переказує новини вашої області й відповідає на запитання про них.</p>
 		<p class="muted">Як почати: натисніть на область на карті → «Новини» → «⋮» на картці новини → «Переказ ШІ».</p>
 
 		{#if saved.length > 0}
@@ -220,6 +288,55 @@
 </div>
 
 <style>
+	.section-title {
+		margin: 20px 0 8px;
+		font-size: 1.05rem;
+	}
+	.quick .section-title {
+		margin-top: 4px;
+	}
+	.quick {
+		padding: 12px 14px 14px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		background: color-mix(in srgb, var(--surface) 60%, transparent);
+	}
+	.my-region {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		font-size: 0.9rem;
+		font-weight: 600;
+	}
+	.my-region select {
+		flex: 1;
+		min-width: 0;
+		padding: 8px 10px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--surface);
+		color: var(--text);
+		font: inherit;
+		font-weight: 400;
+	}
+	.suggestions button:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+	.data .line {
+		margin: 0;
+	}
+	.data .line.alert {
+		color: var(--alert-text);
+		font-weight: 600;
+	}
+	.data .line.muted {
+		color: var(--muted);
+		font-size: 0.85rem;
+	}
+	.data a {
+		color: var(--text);
+	}
 	.saved-title {
 		margin: 24px 0 8px;
 		font-size: 1.05rem;

@@ -40,6 +40,7 @@ type Hub struct {
 	now        func() time.Time
 
 	onChange func(prev, next []RegionState)
+	onState  func(regions []RegionState)
 
 	mu         sync.Mutex
 	haveData   bool // at least one successful poll, so changes are real changes
@@ -85,6 +86,13 @@ func (h *Hub) OnChange(fn func(prev, next []RegionState)) {
 	h.onChange = fn
 }
 
+// OnState registers fn to be called with the current alerts after the first successful poll
+// and after every change, for consumers that need the full picture (such as alert history).
+// Call it before Run.
+func (h *Hub) OnState(fn func(regions []RegionState)) {
+	h.onState = fn
+}
+
 func (h *Hub) poll(ctx context.Context) {
 	fctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	list, err := h.src.Fetch(fctx)
@@ -95,10 +103,13 @@ func (h *Hub) poll(ctx context.Context) {
 
 	// Registered before the unlock below, so it runs after the lock is released.
 	var prev, next []RegionState
-	notify := false
+	notify, stateChanged := false, false
 	defer func() {
 		if notify && h.onChange != nil {
 			h.onChange(prev, next)
+		}
+		if stateChanged && h.onState != nil {
+			h.onState(next)
 		}
 	}()
 
@@ -118,9 +129,12 @@ func (h *Hub) poll(ctx context.Context) {
 		if !bytes.Equal(raw, h.regionsRaw) {
 			prev, next = h.state.Regions, regions
 			notify = h.haveData
+			stateChanged = true
 			h.state.Regions = regions
 			h.regionsRaw = raw
 			changed = true
+		} else if !h.haveData {
+			next, stateChanged = regions, true // first poll with no alerts still sets the baseline
 		}
 		h.haveData = true
 	}

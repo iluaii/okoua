@@ -24,6 +24,7 @@ import (
 	"alert-concept/server/internal/alerts"
 	"alert-concept/server/internal/api"
 	"alert-concept/server/internal/feedback"
+	"alert-concept/server/internal/history"
 	"alert-concept/server/internal/hub"
 	"alert-concept/server/internal/news"
 	"alert-concept/server/internal/power"
@@ -96,6 +97,11 @@ func run(log *slog.Logger) error {
 	}
 	notifier := push.NewNotifier(pushStore, push.WebPushSender(keys, subject), log)
 	h.OnChange(notifier.Changed)
+	recorder, err := history.NewRecorder(db, log)
+	if err != nil {
+		return err
+	}
+	h.OnState(recorder.Sync)
 	go notifier.Run(ctx)
 	go h.Run(ctx)
 	pushHandler := &push.Handler{Store: pushStore, PublicKey: keys.Public, Limiter: push.NewLimiter(), TrustProxy: trustProxy, Log: log}
@@ -113,7 +119,7 @@ func run(log *slog.Logger) error {
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(api.Options{Hub: h, Power: p, Feedback: fb, Push: pushHandler, News: newsService, AI: aiHandler, StaticDir: os.Getenv("STATIC_DIR")}),
+		Handler:           api.New(api.Options{Hub: h, Power: p, Feedback: fb, Push: pushHandler, News: newsService, History: recorder, AI: aiHandler, StaticDir: os.Getenv("STATIC_DIR")}),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// Request contexts are cancelled on shutdown; otherwise open SSE connections would block Shutdown.

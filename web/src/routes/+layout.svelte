@@ -9,11 +9,13 @@
 	import { follows } from '#lib/push.svelte.ts';
 	import { install } from '#lib/install.svelte.ts';
 	import { feedbackDialog } from '#lib/feedback.svelte.ts';
+	import { myRegion } from '#lib/myregion.svelte.ts';
 
 	let { children } = $props();
 
 	onMount(() => {
 		follows.init();
+		myRegion.init();
 		install.init();
 		return feed.start();
 	});

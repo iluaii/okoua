@@ -4,6 +4,7 @@
 	import { install } from '#lib/install.svelte.ts';
 	import { regions } from '#lib/map/regions.ts';
 	import { project } from '#lib/project.ts';
+	import { myRegion, regionsByName } from '#lib/myregion.svelte.ts';
 
 	const names = new Map(regions.map((r) => [r.uid, r.name]));
 </script>
@@ -70,6 +71,20 @@
 			</div>
 		{/if}
 	</section>
+
+	<h2>Моя область</h2>
+	<select
+		class="region-select"
+		value={myRegion.uid ?? ''}
+		onchange={(e) => myRegion.set(Number(e.currentTarget.value) || null)}
+		aria-label="Моя область"
+	>
+		<option value="" disabled>Оберіть область</option>
+		{#each regionsByName as r (r.uid)}
+			<option value={r.uid}>{r.name}</option>
+		{/each}
+	</select>
+	<p class="muted small">Про неї відповідають швидкі запитання на вкладці «ШІ». Зберігається лише в цьому браузері.</p>
 
 	<h2>Сповіщення</h2>
 	{#if follows.regions.length === 0}
@@ -190,6 +205,15 @@
 	.support-link small {
 		font-weight: 400;
 		opacity: 0.85;
+	}
+	.region-select {
+		width: 100%;
+		padding: 9px 10px;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		background: var(--surface);
+		color: var(--text);
+		font: inherit;
 	}
 	.small {
 		font-size: 0.85rem;

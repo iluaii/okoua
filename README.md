@@ -67,6 +67,7 @@ cd web && npm run check
 - `GET /api/push/key`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`: Web Push subscriptions per region. Only endpoints of known push services are accepted.
 - `GET /api/news/{uid}`, `GET /api/news-item?id=`: regional news (title and preview, never the whole post).
 - `POST /api/ai/news`: AI answer about a news post. The question must be `summary` or one of the follow-ups the AI suggested for that post: there is no free-form chat.
+- `GET /api/stats/alerts?hours=24`: alerts per region over a period (count, total and longest minutes; overlapping district alerts count once). History is kept for 30 days.
 - `GET /healthz`
 
 ## Power outage schedules

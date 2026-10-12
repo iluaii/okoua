@@ -25,6 +25,7 @@ type Options struct {
 	Feedback  http.Handler
 	Push      interface{ Register(*http.ServeMux) }
 	News      interface{ Register(*http.ServeMux) }
+	History   interface{ Register(*http.ServeMux) }
 	AI        http.Handler // nil: AI is disabled (no API key)
 	StaticDir string
 }
@@ -41,6 +42,9 @@ func New(o Options) http.Handler {
 	}
 	if o.News != nil {
 		o.News.Register(mux)
+	}
+	if o.History != nil {
+		o.History.Register(mux)
 	}
 	if o.AI != nil {
 		mux.Handle("POST /api/ai/news", o.AI)
