@@ -25,6 +25,7 @@ func TestConvertSiren(t *testing.T) {
 		{"regionId":"101","regionName":"Ніжинський район","regionType":"District","activeAlerts":[
 			{"regionId":"101","regionType":"District","type":"ARTILLERY","lastUpdate":"2026-10-12T10:00:00Z"}]},
 		{"regionId":"1001","regionName":"Ніжинська громада","regionType":"Community","activeAlerts":[
+			{"regionId":"101","regionType":"District","type":"ARTILLERY","lastUpdate":"2026-10-12T10:00:00Z"},
 			{"regionId":"1001","regionType":"Community","type":"AIR","lastUpdate":"2026-10-12T10:05:00Z"}]},
 		{"regionId":"0","regionName":"Тестовий регіон","regionType":"State","activeAlerts":[
 			{"regionId":"0","regionType":"State","type":"AIR","lastUpdate":"2026-10-12T10:00:00Z"}]}
@@ -38,7 +39,7 @@ func TestConvertSiren(t *testing.T) {
 	if crimea.OblastUID != 29 || !crimea.CoversWholeRegion() {
 		t.Errorf("crimea = %+v, want whole region 29", crimea)
 	}
-	if district.OblastUID != 25 || district.Type != "artillery_shelling" || district.LocationType != "raion" || district.CoversWholeRegion() {
+	if district.OblastUID != 25 || district.Type != "artillery_shelling" || district.LocationType != "raion" || district.LocationTitle != "Ніжинський район" || district.CoversWholeRegion() {
 		t.Errorf("district = %+v", district)
 	}
 	if community.OblastUID != 25 || community.LocationType != "hromada" || community.LocationTitle != "Ніжинська громада" {

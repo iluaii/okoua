@@ -143,8 +143,16 @@ var sirenLocationTypes = map[string]string{
 
 func convertSiren(raw []sirenAlertRegion, parent map[string]int) []Alert {
 	var list []Alert
-	for _, r := range raw {
+	seen := map[string]bool{}
+	for _, r := range ordered(raw) {
 		for _, a := range r.ActiveAlerts {
+			// A community's entry repeats its district's alert. Keep each alert once, from
+			// the entry of the place it is about, so it has that place's name.
+			id := a.RegionID + ":" + a.Type
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
 			oblast, ok := parent[a.RegionID]
 			if !ok {
 				oblast, ok = sirenOblast(a.RegionID)
@@ -169,7 +177,7 @@ func convertSiren(raw []sirenAlertRegion, parent map[string]int) []Alert {
 				locUID = strconv.Itoa(oblast) // so Crimea's 9999 becomes 29 and CoversWholeRegion works
 			}
 			list = append(list, Alert{
-				ID:            a.RegionID + ":" + a.Type,
+				ID:            id,
 				Type:          typ,
 				OblastUID:     oblast,
 				LocationUID:   locUID,
@@ -180,6 +188,27 @@ func convertSiren(raw []sirenAlertRegion, parent map[string]int) []Alert {
 		}
 	}
 	return list
+}
+
+// ordered puts each region's own alerts first: entries whose alerts are about the region
+// itself come before entries that only repeat alerts of a bigger region.
+func ordered(raw []sirenAlertRegion) []sirenAlertRegion {
+	var own, rest []sirenAlertRegion
+	for _, r := range raw {
+		var mine, other sirenAlertRegion
+		mine.RegionID, mine.RegionName, mine.RegionType = r.RegionID, r.RegionName, r.RegionType
+		other = mine
+		for _, a := range r.ActiveAlerts {
+			if a.RegionID == r.RegionID {
+				mine.ActiveAlerts = append(mine.ActiveAlerts, a)
+			} else {
+				other.ActiveAlerts = append(other.ActiveAlerts, a)
+			}
+		}
+		own = append(own, mine)
+		rest = append(rest, other)
+	}
+	return append(own, rest...)
 }
 
 func (s *Siren) get(ctx context.Context, path string, v any) error {

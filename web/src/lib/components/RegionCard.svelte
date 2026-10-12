@@ -31,7 +31,7 @@
 			{state.status === 'full' ? 'Тривога' : 'Тривога в частині області'}
 		</p>
 		<ul class="alerts">
-			{#each state.alerts as a (a.id)}
+			{#each state.alerts as a, i (`${i}:${a.id}`)}
 				<li>
 					<span class="type">{alertTypeLabel(a.type)}</span>
 					{#if state.status === 'partial' || a.locationType !== 'oblast'}
