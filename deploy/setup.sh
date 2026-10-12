@@ -15,7 +15,19 @@ here=$(cd "$(dirname "$0")" && pwd)
 id "$owner" >/dev/null
 
 echo "==> Packages"
-xbps-install -Sy caddy rsync sqlite sudo
+# xbps treats "already installed" as an error, so ask only for what is missing.
+missing=
+for p in caddy rsync sqlite sudo; do
+	xbps-query "$p" >/dev/null 2>&1 || missing="$missing $p"
+done
+if [ -n "$missing" ]; then
+	# shellcheck disable=SC2086 # one word per package
+	xbps-install -Sy $missing || {
+		echo "Package install failed. If it says \"unresolvable shlib\", update the system first:" >&2
+		echo "  sudo xbps-install -Su   (run it again if it updated xbps itself)" >&2
+		exit 1
+	}
+fi
 
 echo "==> Users"
 id alert >/dev/null 2>&1 || useradd -r -M -d /opt/alert-concept/var -s /bin/false alert
