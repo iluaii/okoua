@@ -58,6 +58,8 @@ chown root:alert /etc/alert-concept/env
 chmod 640 /etc/alert-concept/env
 
 # Let Caddy bind ports 80 and 443 without running as root.
+# Void reads /etc/sysctl.d/*.conf at boot but doesn't create the directory.
+install -d /etc/sysctl.d
 echo 'net.ipv4.ip_unprivileged_port_start=80' >/etc/sysctl.d/alert-caddy.conf
 sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
 
