@@ -70,9 +70,10 @@
 
 	const subs = $derived(categories.find((c) => c.id === category)?.subs ?? []);
 
-	export function open() {
-		category = null;
-		subcategory = null;
+	export function open(presetCategory?: string, presetSubcategory?: string) {
+		const preset = categories.find((c) => c.id === presetCategory);
+		category = preset?.id ?? null;
+		subcategory = preset?.subs.some(([id]) => id === presetSubcategory) ? (presetSubcategory ?? null) : null;
 		message = '';
 		website = '';
 		status = 'idle';

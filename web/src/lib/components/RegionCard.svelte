@@ -11,8 +11,9 @@
 		now: number;
 		onclose: () => void;
 		onpower: () => void;
+		onnews: () => void;
 	}
-	let { region, state, now, onclose, onpower }: Props = $props();
+	let { region, state, now, onclose, onpower, onnews }: Props = $props();
 
 	const following = $derived(follows.isFollowing(region.uid));
 </script>
@@ -51,7 +52,7 @@
 		>
 			{following ? '✓ Стежу' : 'Стежити'}
 		</button>
-		<button disabled>Новини</button>
+		<button class="primary" onclick={onnews}>Новини</button>
 		<button class="primary" onclick={onpower}>Світло</button>
 	</div>
 	{#if follows.error}
@@ -65,7 +66,6 @@
 	{:else if follows.support === 'unsupported'}
 		<p class="hint">Цей браузер не підтримує сповіщення.</p>
 	{/if}
-	<p class="soon">Новини з'являться незабаром.</p>
 	<p class="soon">Сервіс доповнює офіційні джерела, а не замінює їх. Завжди реагуйте на сирени.</p>
 </section>
 

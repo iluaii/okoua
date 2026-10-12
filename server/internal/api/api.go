@@ -24,6 +24,8 @@ type Options struct {
 	Power     *power.Service
 	Feedback  http.Handler
 	Push      interface{ Register(*http.ServeMux) }
+	News      interface{ Register(*http.ServeMux) }
+	AI        http.Handler // nil: AI is disabled (no API key)
 	StaticDir string
 }
 
@@ -36,6 +38,16 @@ func New(o Options) http.Handler {
 	}
 	if o.Push != nil {
 		o.Push.Register(mux)
+	}
+	if o.News != nil {
+		o.News.Register(mux)
+	}
+	if o.AI != nil {
+		mux.Handle("POST /api/ai/news", o.AI)
+	} else {
+		mux.HandleFunc("POST /api/ai/news", func(w http.ResponseWriter, r *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "ai disabled"})
+		})
 	}
 
 	mux.HandleFunc("GET /api/alerts", func(w http.ResponseWriter, r *http.Request) {

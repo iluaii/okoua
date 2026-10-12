@@ -8,6 +8,7 @@
 	import FeedbackDialog from '#lib/components/FeedbackDialog.svelte';
 	import { follows } from '#lib/push.svelte.ts';
 	import { install } from '#lib/install.svelte.ts';
+	import { feedbackDialog } from '#lib/feedback.svelte.ts';
 
 	let { children } = $props();
 
@@ -18,6 +19,9 @@
 	});
 
 	let feedback = $state<ReturnType<typeof FeedbackDialog>>();
+	$effect(() => {
+		feedbackDialog.open = feedback ? (c, s) => feedback?.open(c, s) : null;
+	});
 
 	const trim = (p: string) => p.replace(/\/$/, '') || '/';
 

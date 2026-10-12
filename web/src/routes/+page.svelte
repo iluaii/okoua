@@ -5,6 +5,7 @@
 	import RegionCard from '#lib/components/RegionCard.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
 	import PowerPanel from '#lib/components/PowerPanel.svelte';
+	import NewsPanel from '#lib/components/NewsPanel.svelte';
 	import { loadPower, type PowerLoad } from '#lib/power/types.ts';
 	import { feed } from '#lib/feed.svelte.ts';
 	import { regions } from '#lib/map/regions.ts';
@@ -28,7 +29,7 @@
 	let sheetHeight = $state(0);
 
 	// What the sheet shows for the selected region.
-	let mode = $state<'info' | 'power'>('info');
+	let mode = $state<'info' | 'power' | 'news'>('info');
 
 	let power = $state<PowerLoad>({ kind: 'loading' });
 	let powerController: AbortController | undefined;
@@ -90,7 +91,7 @@
 </div>
 
 {#if selectedRegion}
-	<Sheet label={selectedRegion.name} onclose={() => (selected = null)} bind:height={sheetHeight} tall={mode === 'power'}>
+	<Sheet label={selectedRegion.name} onclose={() => (selected = null)} bind:height={sheetHeight} tall={mode !== 'info'}>
 		{#if mode === 'power'}
 			<PowerPanel
 				region={selectedRegion}
@@ -100,6 +101,8 @@
 				onclose={() => (selected = null)}
 				onretry={openPower}
 			/>
+		{:else if mode === 'news'}
+			<NewsPanel region={selectedRegion} {now} onback={() => (mode = 'info')} onclose={() => (selected = null)} />
 		{:else}
 			<RegionCard
 				region={selectedRegion}
@@ -107,6 +110,7 @@
 				{now}
 				onclose={() => (selected = null)}
 				onpower={openPower}
+				onnews={() => (mode = 'news')}
 			/>
 		{/if}
 	</Sheet>

@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,13 +15,17 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
+	"alert-concept/server/internal/ai"
 	"alert-concept/server/internal/alerts"
 	"alert-concept/server/internal/api"
 	"alert-concept/server/internal/feedback"
 	"alert-concept/server/internal/hub"
+	"alert-concept/server/internal/news"
 	"alert-concept/server/internal/power"
 	"alert-concept/server/internal/push"
 	"alert-concept/server/internal/storage"
@@ -95,9 +100,20 @@ func run(log *slog.Logger) error {
 	go h.Run(ctx)
 	pushHandler := &push.Handler{Store: pushStore, PublicKey: keys.Public, Limiter: push.NewLimiter(), TrustProxy: trustProxy, Log: log}
 
+	newsService, err := news.NewService(db, news.DefaultSources(), 5*time.Minute, log)
+	if err != nil {
+		return err
+	}
+	go newsService.Run(ctx)
+
+	aiHandler, err := newAI(ctx, db, newsService, trustProxy, log)
+	if err != nil {
+		return err
+	}
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(api.Options{Hub: h, Power: p, Feedback: fb, Push: pushHandler, StaticDir: os.Getenv("STATIC_DIR")}),
+		Handler:           api.New(api.Options{Hub: h, Power: p, Feedback: fb, Push: pushHandler, News: newsService, AI: aiHandler, StaticDir: os.Getenv("STATIC_DIR")}),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// Request contexts are cancelled on shutdown; otherwise open SSE connections would block Shutdown.
@@ -143,6 +159,71 @@ func source(log *slog.Logger) (alerts.Source, error) {
 		return nil, fmt.Errorf("ALERTS_SOURCE: unknown source %q (want alertsinua or mock)", name)
 	}
 }
+
+// Free OpenRouter models for testing, from different providers so one overloaded provider
+// doesn't take both down. Switch to paid ones for the public launch via AI_MODELS.
+const defaultAIModels = "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-super-120b-a12b:free"
+
+// newAI returns the AI handler, or nil (AI disabled) when OPENROUTER_API_KEY is not set.
+func newAI(ctx context.Context, db *sql.DB, ns *news.Service, trustProxy bool, log *slog.Logger) (http.Handler, error) {
+	key := os.Getenv("OPENROUTER_API_KEY")
+	if key == "" {
+		log.Warn("OPENROUTER_API_KEY is not set: AI answers are disabled")
+		return nil, nil
+	}
+	var models []string
+	for _, m := range strings.Split(env("AI_MODELS", defaultAIModels), ",") {
+		if m = strings.TrimSpace(m); m != "" {
+			models = append(models, m)
+		}
+	}
+	limit, err := strconv.Atoi(env("AI_DAILY_LIMIT", "40"))
+	if err != nil || limit < 0 {
+		return nil, fmt.Errorf("AI_DAILY_LIMIT: need a number, got %q", os.Getenv("AI_DAILY_LIMIT"))
+	}
+	lookup := func(ctx context.Context, id string) (ai.Post, error) {
+		item, text, err := ns.Post(ctx, id)
+		if errors.Is(err, news.ErrNotFound) {
+			return ai.Post{}, ai.ErrNotFound
+		}
+		if err != nil {
+			return ai.Post{}, err
+		}
+		published := item.PublishedAt
+		if t, err := time.Parse(time.RFC3339, item.PublishedAt); err == nil {
+			published = t.In(kyiv).Format("02.01.2006 15:04")
+		}
+		return ai.Post{Source: item.Source.Name, PublishedAt: published, Text: text}, nil
+	}
+	h, err := ai.NewHandler(db, ai.NewAsker(ai.NewOpenRouter(key, models), log), lookup, limit, trustProxy, log)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		t := time.NewTicker(24 * time.Hour)
+		defer t.Stop()
+		for {
+			if err := h.Prune(ctx, 8*24*time.Hour); err != nil && ctx.Err() == nil {
+				log.Warn("ai prune failed", "err", err)
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+			}
+		}
+	}()
+	log.Info("AI enabled", "models", models, "dailyLimit", limit)
+	return h, nil
+}
+
+var kyiv = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Kyiv")
+	if err != nil {
+		panic(err)
+	}
+	return loc
+}()
 
 // feedbackRetention is how long feedback is kept; the privacy policy must match it.
 const feedbackRetention = 365 * 24 * time.Hour
