@@ -22,6 +22,8 @@ import (
 	"alert-concept/server/internal/feedback"
 	"alert-concept/server/internal/hub"
 	"alert-concept/server/internal/power"
+	"alert-concept/server/internal/push"
+	"alert-concept/server/internal/storage"
 )
 
 func main() {
@@ -48,7 +50,6 @@ func run(log *slog.Logger) error {
 	defer stop()
 
 	h := hub.New(src, interval, log)
-	go h.Run(ctx)
 
 	powerInterval, err := time.ParseDuration(env("POWER_INTERVAL", "5m"))
 	if err != nil || powerInterval < time.Minute {
@@ -61,22 +62,42 @@ func run(log *slog.Logger) error {
 	if err := os.MkdirAll(dataDir, 0o750); err != nil {
 		return err
 	}
-	store, err := feedback.Open(filepath.Join(dataDir, "app.db"))
+	db, err := storage.Open(filepath.Join(dataDir, "app.db"))
 	if err != nil {
 		return err
 	}
-	defer store.Close()
-	go pruneFeedback(ctx, store, log)
-	fb := &feedback.Handler{
-		Store:      store,
-		Limiter:    feedback.DefaultLimiter(),
-		TrustProxy: os.Getenv("TRUST_PROXY") == "1",
-		Log:        log,
+	defer db.Close()
+	trustProxy := os.Getenv("TRUST_PROXY") == "1"
+
+	store, err := feedback.NewStore(db)
+	if err != nil {
+		return err
 	}
+	go pruneFeedback(ctx, store, log)
+	fb := &feedback.Handler{Store: store, Limiter: feedback.NewLimiter(), TrustProxy: trustProxy, Log: log}
+
+	pushStore, err := push.NewStore(db)
+	if err != nil {
+		return err
+	}
+	keys, err := push.LoadOrCreateKeys(filepath.Join(dataDir, "vapid.json"))
+	if err != nil {
+		return err
+	}
+	subject := os.Getenv("VAPID_SUBJECT")
+	if subject == "" {
+		subject = "https://localhost"
+		log.Warn("VAPID_SUBJECT is not set; set it to a contact URL or e-mail before deploying")
+	}
+	notifier := push.NewNotifier(pushStore, push.WebPushSender(keys, subject), log)
+	h.OnChange(notifier.Changed)
+	go notifier.Run(ctx)
+	go h.Run(ctx)
+	pushHandler := &push.Handler{Store: pushStore, PublicKey: keys.Public, Limiter: push.NewLimiter(), TrustProxy: trustProxy, Log: log}
 
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(h, p, fb, os.Getenv("STATIC_DIR")),
+		Handler:           api.New(api.Options{Hub: h, Power: p, Feedback: fb, Push: pushHandler, StaticDir: os.Getenv("STATIC_DIR")}),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// Request contexts are cancelled on shutdown; otherwise open SSE connections would block Shutdown.

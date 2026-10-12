@@ -35,7 +35,7 @@ func TestStreamSendsSnapshotOnConnect(t *testing.T) {
 	h := hub.New(staticSource{}, time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	go h.Run(ctx)
 
-	srv := httptest.NewServer(New(h, power.NewService(nil, time.Hour, discard), nil, ""))
+	srv := httptest.NewServer(New(Options{Hub: h, Power: power.NewService(nil, time.Hour, discard)}))
 	defer srv.Close()
 
 	// Wait for the first poll so the snapshot is not empty.
@@ -79,7 +79,7 @@ func TestStreamSendsSnapshotOnConnect(t *testing.T) {
 func TestAlertsSnapshot(t *testing.T) {
 	h := hub.New(staticSource{}, time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	rec := httptest.NewRecorder()
-	New(h, power.NewService(nil, time.Hour, discard), nil, "").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/alerts", nil))
+	New(Options{Hub: h, Power: power.NewService(nil, time.Hour, discard)}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/alerts", nil))
 	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("code %d, headers %v", rec.Code, rec.Header())
 	}
@@ -91,7 +91,7 @@ func TestAlertsSnapshot(t *testing.T) {
 
 func TestPowerRoutes(t *testing.T) {
 	h := hub.New(staticSource{}, time.Hour, discard)
-	handler := New(h, power.NewService([]power.Region{{UID: 25}}, time.Hour, discard), nil, "")
+	handler := New(Options{Hub: h, Power: power.NewService([]power.Region{{UID: 25}}, time.Hour, discard)})
 
 	cases := []struct {
 		path string

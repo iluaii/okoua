@@ -2,7 +2,7 @@
 
 A web app (PWA) for Ukraine that brings air-raid alerts, power outage schedules and regional news together in one place. The interface is in Ukrainian.
 
-Status: a live air-raid alert map, and power outage schedules for six regions (Kyiv city; Kyiv, Dnipropetrovsk, Chernihiv, Kharkiv and Poltava oblasts).
+Status: a live air-raid alert map with push notifications per region, an installable PWA that works offline, and power outage schedules for six regions (Kyiv city; Kyiv, Dnipropetrovsk, Chernihiv, Kharkiv and Poltava oblasts).
 
 ## Layout
 
@@ -64,6 +64,7 @@ cd web && npm run check
 - `GET /api/power`: regions with power outage schedules.
 - `GET /api/power/{uid}`: today's and tomorrow's schedule for a region (404 if unsupported, 503 before the first fetch).
 - `POST /api/feedback`: anonymous feedback (JSON). Rate-limited per client and globally; no IP addresses are stored.
+- `GET /api/push/key`, `POST /api/push/subscribe`, `POST /api/push/unsubscribe`: Web Push subscriptions per region. Only endpoints of known push services are accepted.
 - `GET /healthz`
 
 ## Power outage schedules
@@ -82,6 +83,14 @@ cd server && go run ./cmd/feedback        # latest 50 entries; -n for more
 ```
 
 The in-app limits protect the form and the database; protection against a real DDoS belongs at the reverse proxy or hosting level.
+
+## Push notifications and offline use
+
+Users tap «Стежити» on a region to get a notification when an alert starts or ends there. The server stores only the browser-issued push endpoint and the followed regions; expired subscriptions are removed when the push service reports them gone. VAPID keys are generated on first start in `server/var/vapid.json`: keep that file, since new keys invalidate every subscription.
+
+The service worker (`web/src/service-worker/`) caches the app shell and the last `/api/alerts` and `/api/power/*` responses, so the site opens offline with the last known data.
+
+Push and service workers need a secure origin. `http://localhost:8080` counts as one, so everything works on the development machine. To test from an Android phone on the LAN without HTTPS, add the LAN address in Chrome at `chrome://flags/#unsafely-treat-insecure-origin-as-secure`. iPhones need real HTTPS and the site added to the home screen (iOS 16.4+).
 
 ## Map
 

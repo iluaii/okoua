@@ -6,10 +6,16 @@
 	import { resolve } from '$app/paths';
 	import { feed } from '#lib/feed.svelte.ts';
 	import FeedbackDialog from '#lib/components/FeedbackDialog.svelte';
+	import { follows } from '#lib/push.svelte.ts';
+	import { install } from '#lib/install.svelte.ts';
 
 	let { children } = $props();
 
-	onMount(() => feed.start());
+	onMount(() => {
+		follows.init();
+		install.init();
+		return feed.start();
+	});
 
 	let feedback = $state<ReturnType<typeof FeedbackDialog>>();
 

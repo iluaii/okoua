@@ -15,6 +15,9 @@
 	let map = $state<ReturnType<typeof UkraineMap>>();
 
 	onMount(() => {
+		// Opened from a notification: /?region=25 shows that region.
+		const fromLink = Number(new URLSearchParams(location.search).get('region'));
+		if (regions.some((r) => r.uid === fromLink)) selected = fromLink;
 		const tick = setInterval(() => (now = Date.now()), 30_000);
 		return () => clearInterval(tick);
 	});

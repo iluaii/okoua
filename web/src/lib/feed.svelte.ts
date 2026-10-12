@@ -2,6 +2,8 @@
 
 import type { AlertsState } from './types.ts';
 
+const timeFmt = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' });
+
 export type Connection = 'connecting' | 'live' | 'offline';
 
 export interface FeedStatus {
@@ -23,9 +25,9 @@ export class AlertsFeed {
 
 	get status(): FeedStatus {
 		if (this.connection !== 'live') {
-			return this.state
-				? { kind: 'warn', short: "Немає зв'язку", detail: "Немає зв'язку з сервером, перепідключення… Показано останні відомі дані." }
-				: { kind: 'muted', short: 'Підключення…' };
+			if (!this.state) return { kind: 'muted', short: 'Підключення…' };
+			const at = this.state.updatedAt ? ` на ${timeFmt.format(new Date(this.state.updatedAt))}` : '';
+			return { kind: 'warn', short: "Немає зв'язку", detail: `Немає зв'язку з сервером, перепідключення… Показано дані${at}.` };
 		}
 		if (this.state?.stale) {
 			return { kind: 'warn', short: 'Дані застаріли', detail: 'Джерело тривог не відповідає. Дані можуть бути застарілими.' };
@@ -39,6 +41,7 @@ export class AlertsFeed {
 
 	/** Connects and returns a function that disconnects. */
 	start(): () => void {
+		this.#loadSnapshot();
 		this.#connect();
 		const onVisible = () => {
 			// A phone may have put the connection to sleep in the background: reconnect right away when the tab is visible again.
@@ -53,6 +56,17 @@ export class AlertsFeed {
 			this.#es?.close();
 			this.#es = null;
 		};
+	}
+
+	// The snapshot shows something right away, and offline the service worker answers it
+	// from cache, so the map still shows the last known alerts.
+	async #loadSnapshot() {
+		try {
+			const res = await fetch('/api/alerts');
+			if (res.ok && !this.state) this.state = (await res.json()) as AlertsState;
+		} catch {
+			// Offline with nothing cached: the stream will fill the state once connected.
+		}
 	}
 
 	#connect() {

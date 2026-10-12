@@ -138,3 +138,22 @@ func TestSlowSubscriberGetsLatest(t *testing.T) {
 	default:
 	}
 }
+
+func TestOnChangeSkipsFirstPoll(t *testing.T) {
+	src := &fakeSource{results: []result{
+		{list: []alerts.Alert{whole(16)}},
+		{list: []alerts.Alert{whole(16), whole(22)}},
+		{list: []alerts.Alert{whole(16), whole(22)}},
+	}}
+	clock := t0
+	h := newTestHub(src, &clock)
+	var calls [][2]int
+	h.OnChange(func(prev, next []RegionState) { calls = append(calls, [2]int{len(prev), len(next)}) })
+
+	for range 3 {
+		h.poll(context.Background())
+	}
+	if len(calls) != 1 || calls[0] != [2]int{1, 2} {
+		t.Fatalf("calls = %v, want one change from 1 to 2 regions (startup and no-op polls ignored)", calls)
+	}
+}

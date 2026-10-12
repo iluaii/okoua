@@ -3,6 +3,7 @@
 	import type { MapRegion } from '#lib/map/regions.ts';
 	import type { RegionState } from '#lib/types.ts';
 	import { alertTypeLabel, formatDuration, formatStart } from '#lib/format.ts';
+	import { follows } from '#lib/push.svelte.ts';
 
 	interface Props {
 		region: MapRegion;
@@ -12,6 +13,8 @@
 		onpower: () => void;
 	}
 	let { region, state, now, onclose, onpower }: Props = $props();
+
+	const following = $derived(follows.isFollowing(region.uid));
 </script>
 
 <section class="card" aria-labelledby="region-title">
@@ -40,11 +43,29 @@
 	{/if}
 
 	<div class="actions">
-		<button disabled>Стежити</button>
+		<button
+			class:on={following}
+			aria-pressed={following}
+			disabled={follows.busy || (follows.support !== 'supported' && !following)}
+			onclick={() => follows.toggle(region.uid)}
+		>
+			{following ? '✓ Стежу' : 'Стежити'}
+		</button>
 		<button disabled>Новини</button>
 		<button class="primary" onclick={onpower}>Світло</button>
 	</div>
-	<p class="soon">Сповіщення та новини з'являться незабаром.</p>
+	{#if follows.error}
+		<p class="hint err">{follows.error}</p>
+	{:else if following}
+		<p class="hint">Ви отримаєте сповіщення про початок і відбій тривоги в цій області.</p>
+	{:else if follows.support === 'ios-install'}
+		<p class="hint">Щоб стежити на iPhone: «Поділитися» → «На початковий екран», потім відкрийте сайт з іконки.</p>
+	{:else if follows.support === 'denied'}
+		<p class="hint">Сповіщення заблоковані в налаштуваннях браузера для цього сайту.</p>
+	{:else if follows.support === 'unsupported'}
+		<p class="hint">Цей браузер не підтримує сповіщення.</p>
+	{/if}
+	<p class="soon">Новини з'являться незабаром.</p>
 	<p class="soon">Сервіс доповнює офіційні джерела, а не замінює їх. Завжди реагуйте на сирени.</p>
 </section>
 
@@ -129,6 +150,23 @@
 		color: var(--accent);
 		font-weight: 600;
 		cursor: pointer;
+	}
+	.actions button.on {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: #fff;
+		font-weight: 600;
+	}
+	.actions button:not(:disabled) {
+		cursor: pointer;
+	}
+	.hint {
+		margin: 8px 0 0;
+		font-size: 0.85rem;
+		color: var(--muted);
+	}
+	.hint.err {
+		color: var(--alert-text);
 	}
 	.actions button:disabled {
 		opacity: 0.55;

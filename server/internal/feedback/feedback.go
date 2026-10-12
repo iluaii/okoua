@@ -10,8 +10,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"alert-concept/server/internal/ratelimit"
 )
 
 // Categories are the allowed category → subcategory IDs. Labels live in the web client.
@@ -40,10 +43,19 @@ type request struct {
 	Website string `json:"website"`
 }
 
+// NewLimiter returns the feedback rate limits: 5 per 10 minutes and 30 per day per client,
+// 300 per hour in total.
+func NewLimiter() *ratelimit.Limiter {
+	return ratelimit.New(
+		[]ratelimit.Rule{{N: 5, Per: 10 * time.Minute}, {N: 30, Per: 24 * time.Hour}},
+		[]ratelimit.Rule{{N: 300, Per: time.Hour}},
+	)
+}
+
 // Handler serves POST /api/feedback.
 type Handler struct {
 	Store      *Store
-	Limiter    *Limiter
+	Limiter    *ratelimit.Limiter
 	TrustProxy bool // take the client IP from X-Forwarded-For (set by our reverse proxy)
 	Log        *slog.Logger
 }
@@ -55,7 +67,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Limit before parsing, so floods of junk are throttled too.
-	if !h.Limiter.Allow(clientIP(r, h.TrustProxy)) {
+	if !h.Limiter.Allow(ratelimit.ClientIP(r, h.TrustProxy)) {
 		w.Header().Set("Retry-After", "600")
 		writeError(w, http.StatusTooManyRequests, "too many requests")
 		return

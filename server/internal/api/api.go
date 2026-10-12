@@ -6,8 +6,10 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"mime"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"alert-concept/server/internal/hub"
@@ -16,12 +18,24 @@ import (
 
 const heartbeatEvery = 20 * time.Second
 
-// New builds the HTTP handler. feedback may be nil to disable POST /api/feedback.
-func New(h *hub.Hub, p *power.Service, feedback http.Handler, staticDir string) http.Handler {
+// Options are the parts the HTTP API is built from. Feedback and Push may be nil.
+type Options struct {
+	Hub       *hub.Hub
+	Power     *power.Service
+	Feedback  http.Handler
+	Push      interface{ Register(*http.ServeMux) }
+	StaticDir string
+}
+
+func New(o Options) http.Handler {
+	h, p, staticDir := o.Hub, o.Power, o.StaticDir
 	mux := http.NewServeMux()
 
-	if feedback != nil {
-		mux.Handle("POST /api/feedback", feedback)
+	if o.Feedback != nil {
+		mux.Handle("POST /api/feedback", o.Feedback)
+	}
+	if o.Push != nil {
+		o.Push.Register(mux)
 	}
 
 	mux.HandleFunc("GET /api/alerts", func(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +76,7 @@ func New(h *hub.Hub, p *power.Service, feedback http.Handler, staticDir string) 
 	})
 
 	if staticDir != "" {
-		mux.Handle("GET /", http.FileServer(http.Dir(staticDir)))
+		mux.Handle("GET /", static(staticDir))
 	}
 	return mux
 }
@@ -118,4 +132,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+func init() {
+	// Not in Go's built-in table; browsers expect this type for the PWA manifest.
+	mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
+
+// static serves the site build with cache headers suited to it.
+func static(dir string) http.Handler {
+	files := http.FileServer(http.Dir(dir))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/_app/immutable/"):
+			// File names contain a content hash, so they never change.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		case strings.HasPrefix(r.URL.Path, "/icons/"):
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+		default:
+			// Pages, the service worker and the manifest: always revalidate so updates arrive.
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		files.ServeHTTP(w, r)
+	})
 }

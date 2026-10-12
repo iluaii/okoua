@@ -39,7 +39,10 @@ type Hub struct {
 	log        *slog.Logger
 	now        func() time.Time
 
+	onChange func(prev, next []RegionState)
+
 	mu         sync.Mutex
+	haveData   bool // at least one successful poll, so changes are real changes
 	state      State
 	regionsRaw []byte // encoded Regions, for cheap comparison
 	lastOK     time.Time
@@ -75,6 +78,13 @@ func (h *Hub) Run(ctx context.Context) {
 	}
 }
 
+// OnChange registers fn to be called (from the polling goroutine, outside the lock)
+// whenever the set of alerts changes. The first successful poll after start is not a change.
+// Call it before Run.
+func (h *Hub) OnChange(fn func(prev, next []RegionState)) {
+	h.onChange = fn
+}
+
 func (h *Hub) poll(ctx context.Context) {
 	fctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	list, err := h.src.Fetch(fctx)
@@ -82,6 +92,15 @@ func (h *Hub) poll(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
+
+	// Registered before the unlock below, so it runs after the lock is released.
+	var prev, next []RegionState
+	notify := false
+	defer func() {
+		if notify && h.onChange != nil {
+			h.onChange(prev, next)
+		}
+	}()
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -97,10 +116,13 @@ func (h *Hub) poll(ctx context.Context) {
 		regions := groupByRegion(list)
 		raw, _ := json.Marshal(regions)
 		if !bytes.Equal(raw, h.regionsRaw) {
+			prev, next = h.state.Regions, regions
+			notify = h.haveData
 			h.state.Regions = regions
 			h.regionsRaw = raw
 			changed = true
 		}
+		h.haveData = true
 	}
 
 	stale := h.lastOK.IsZero() || now.Sub(h.lastOK) > h.staleAfter

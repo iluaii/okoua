@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package feedback
+// Package ratelimit is an in-memory, privacy-preserving rate limiter keyed by client IP.
+package ratelimit
 
 import (
 	"crypto/rand"
@@ -37,14 +38,10 @@ type Limiter struct {
 	calls   int
 }
 
-// DefaultLimiter is generous per client, because mobile carriers put many people behind one IP.
-func DefaultLimiter() *Limiter {
-	return &Limiter{
-		PerClient:  []Rule{{5, 10 * time.Minute}, {30, 24 * time.Hour}},
-		Global:     []Rule{{300, time.Hour}},
-		MaxClients: 100_000,
-		now:        time.Now,
-	}
+// New returns a limiter with the given rules. Keep per-client limits generous:
+// mobile carriers put many people behind one IP.
+func New(perClient, global []Rule) *Limiter {
+	return &Limiter{PerClient: perClient, Global: global, MaxClients: 100_000, now: time.Now}
 }
 
 // Allow records an attempt from ip and reports whether it is within the limits.
@@ -131,9 +128,9 @@ func longest(rules []Rule) time.Duration {
 	return d
 }
 
-// clientIP returns the client address. IPv6 addresses are reduced to their /64 network,
+// ClientIP returns the client address. IPv6 addresses are reduced to their /64 network,
 // since one client usually controls a whole /64.
-func clientIP(r *http.Request, trustProxy bool) string {
+func ClientIP(r *http.Request, trustProxy bool) string {
 	addr := r.RemoteAddr
 	if trustProxy {
 		// Our proxy appends the address it saw as the last X-Forwarded-For entry.

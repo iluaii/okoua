@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite" // pure-Go SQLite driver, no cgo
+	"alert-concept/server/internal/storage"
 )
 
 // Entry is one piece of feedback. It deliberately has no IP or user identifier.
@@ -24,7 +24,8 @@ type Entry struct {
 
 // Store keeps feedback in SQLite.
 type Store struct {
-	db *sql.DB
+	db    *sql.DB
+	owned bool // Close closes db
 }
 
 const schema = `
@@ -40,21 +41,36 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE INDEX IF NOT EXISTS feedback_created_at ON feedback (created_at);
 `
 
-// Open opens (or creates) the database at path.
+// Open opens the database at path and returns a store that owns it.
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", "file:"+path+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	db, err := storage.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1) // SQLite allows one writer; serialize to avoid busy errors
-	if _, err := db.Exec(schema); err != nil {
+	s, err := NewStore(db)
+	if err != nil {
 		db.Close()
+		return nil, err
+	}
+	s.owned = true
+	return s, nil
+}
+
+// NewStore creates the feedback table if needed. The caller owns db.
+func NewStore(db *sql.DB) (*Store, error) {
+	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("feedback: schema: %w", err)
 	}
 	return &Store{db: db}, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+// Close closes the database if the store opened it.
+func (s *Store) Close() error {
+	if s.owned {
+		return s.db.Close()
+	}
+	return nil
+}
 
 func (s *Store) Add(ctx context.Context, e Entry) error {
 	_, err := s.db.ExecContext(ctx,

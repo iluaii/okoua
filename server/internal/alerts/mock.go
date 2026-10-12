@@ -45,7 +45,9 @@ func (m *Mock) Fetch(ctx context.Context) ([]Alert, error) {
 }
 
 func (m *Mock) step() {
-	if m.rng.Float64() < 0.35 {
+	// Rare enough that push notifications during testing stay readable (with 15s polling,
+	// a change every couple of minutes).
+	if m.rng.Float64() < 0.1 {
 		free := m.freeRegions()
 		if len(free) > 0 {
 			uid := free[m.rng.IntN(len(free))]
@@ -57,7 +59,7 @@ func (m *Mock) step() {
 			m.add(uid, whole, typ, m.now())
 		}
 	}
-	if m.rng.Float64() < 0.3 {
+	if m.rng.Float64() < 0.08 {
 		var removable []int
 		for i, a := range m.alerts {
 			if !slices.Contains(mockPermanent, a.OblastUID) {
