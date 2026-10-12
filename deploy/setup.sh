@@ -63,8 +63,11 @@ install -d /etc/sysctl.d
 echo 'net.ipv4.ip_unprivileged_port_start=80' >/etc/sysctl.d/alert-caddy.conf
 sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
 
-install -m 755 "$here/backup-local" /usr/local/sbin/alert-concept-backup
+install -D -m 755 "$here/backup-local" /usr/local/sbin/alert-concept-backup
 # deploy.sh and backup.sh need exactly these two commands as root, nothing else.
+install -d -m 750 /etc/sudoers.d
+grep -Eq '^[@#]includedir /etc/sudoers.d' /etc/sudoers ||
+	echo "Warning: /etc/sudoers doesn't read /etc/sudoers.d; add the line  @includedir /etc/sudoers.d  with visudo" >&2
 cat >/etc/sudoers.d/alert-concept <<SUDO
 $owner ALL=(root) NOPASSWD: /usr/bin/sv restart alert-concept, /usr/local/sbin/alert-concept-backup
 SUDO
