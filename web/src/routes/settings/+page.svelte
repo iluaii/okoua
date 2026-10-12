@@ -159,6 +159,17 @@
 			<li>Тривоги: <a href="https://alerts.in.ua" rel="noopener">alerts.in.ua</a></li>
 		{/if}
 		<li>
+			Графіки світла: <a href="https://yasno.ua" rel="noopener">YASNO</a> (м. Київ, Дніпропетровська область); Чернігівобленерго,
+			Харківобленерго, Полтаваобленерго через
+			<a href="https://github.com/yaroslav2901/OE_OUTAGE_DATA" rel="noopener">OE_OUTAGE_DATA</a> (Ярослав Цибульський); ДТЕК
+			Київські регіональні електромережі через
+			<a href="https://github.com/Baskerville42/outage-data-ua" rel="noopener">outage-data-ua</a> (Alexander Tartmin, MIT)
+		</li>
+		<li>
+			Новини: публічні Telegram-канали Чернігівської ОВА, Чернігівобленерго та Суспільного Чернігів. Ми показуємо
+			заголовок і початок допису, повний текст за посиланням на джерело.
+		</li>
+		<li>
 			Межі областей: © учасники <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>
 			(ODbL), через <a href="https://www.geoboundaries.org" rel="noopener">geoBoundaries</a>
 		</li>
