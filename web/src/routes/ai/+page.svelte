@@ -422,20 +422,20 @@
 		gap: 2px;
 		padding: 12px 14px;
 		border-radius: 16px;
-		background: var(--sticker, var(--surface-2));
-		border: 1px solid color-mix(in srgb, var(--sticker-edge, var(--border)) 60%, transparent);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-left: 3px solid var(--edge, var(--border));
 	}
+	/* Calm, neutral cards: news can be grim, so no bright colours. The source kind is only
+	   a thin, muted stripe on the left. */
 	.official {
-		--sticker: color-mix(in srgb, #3b82f6 12%, var(--surface));
-		--sticker-edge: #3b82f6;
+		--edge: #7d8aa0;
 	}
 	.energy {
-		--sticker: color-mix(in srgb, #eab308 16%, var(--surface));
-		--sticker-edge: #eab308;
+		--edge: #a39274;
 	}
 	.media {
-		--sticker: color-mix(in srgb, #10b981 11%, var(--surface));
-		--sticker-edge: #10b981;
+		--edge: #7f9690;
 	}
 	.sticker h2 {
 		margin: 0;
