@@ -57,22 +57,31 @@ fi
 chown root:alert /etc/alert-concept/env
 chmod 640 /etc/alert-concept/env
 
+echo "==> Ports 80 and 443 for Caddy"
 # Let Caddy bind ports 80 and 443 without running as root.
 # Void reads /etc/sysctl.d/*.conf at boot but doesn't create the directory.
 install -d /etc/sysctl.d
 echo 'net.ipv4.ip_unprivileged_port_start=80' >/etc/sysctl.d/alert-caddy.conf
 sysctl -q -w net.ipv4.ip_unprivileged_port_start=80
 
+echo "==> Backup helper and sudo rule"
 install -D -m 755 "$here/backup-local" /usr/local/sbin/alert-concept-backup
 # deploy.sh and backup.sh need exactly these two commands as root, nothing else.
 install -d -m 750 /etc/sudoers.d
 grep -Eq '^[@#]includedir /etc/sudoers.d' /etc/sudoers ||
 	echo "Warning: /etc/sudoers doesn't read /etc/sudoers.d; add the line  @includedir /etc/sudoers.d  with visudo" >&2
-cat >/etc/sudoers.d/alert-concept <<SUDO
-$owner ALL=(root) NOPASSWD: /usr/bin/sv restart alert-concept, /usr/local/sbin/alert-concept-backup
+# Check the file before putting it in place: a broken file in sudoers.d breaks sudo entirely.
+tmp=$(mktemp)
+cat >"$tmp" <<SUDO
+$owner ALL=(root) NOPASSWD: $(command -v sv) restart alert-concept, /usr/local/sbin/alert-concept-backup
 SUDO
-chmod 440 /etc/sudoers.d/alert-concept
-visudo -cq
+if ! visudo -c -f "$tmp"; then
+	rm -f "$tmp"
+	echo "The sudo rule above is invalid; nothing was changed in /etc/sudoers.d." >&2
+	exit 1
+fi
+install -m 440 "$tmp" /etc/sudoers.d/alert-concept
+rm -f "$tmp"
 
 echo "==> Services"
 for s in alert-concept alert-caddy; do
