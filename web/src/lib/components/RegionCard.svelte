@@ -9,8 +9,9 @@
 		state: RegionState | undefined;
 		now: number;
 		onclose: () => void;
+		onpower: () => void;
 	}
-	let { region, state, now, onclose }: Props = $props();
+	let { region, state, now, onclose, onpower }: Props = $props();
 </script>
 
 <section class="card" aria-labelledby="region-title">
@@ -41,9 +42,9 @@
 	<div class="actions">
 		<button disabled>Стежити</button>
 		<button disabled>Новини</button>
-		<button disabled>Світло</button>
+		<button class="primary" onclick={onpower}>Світло</button>
 	</div>
-	<p class="soon">Сповіщення, новини та графіки світла з'являться незабаром.</p>
+	<p class="soon">Сповіщення та новини з'являться незабаром.</p>
 	<p class="soon">Сервіс доповнює офіційні джерела, а не замінює їх. Завжди реагуйте на сирени.</p>
 </section>
 
@@ -122,6 +123,12 @@
 		color: var(--text);
 		font: inherit;
 		font-size: 0.9rem;
+	}
+	.actions button.primary {
+		border-color: var(--accent);
+		color: var(--accent);
+		font-weight: 600;
+		cursor: pointer;
 	}
 	.actions button:disabled {
 		opacity: 0.55;

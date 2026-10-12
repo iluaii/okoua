@@ -4,6 +4,8 @@
 	import UkraineMap from '#lib/components/UkraineMap.svelte';
 	import RegionCard from '#lib/components/RegionCard.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
+	import PowerPanel from '#lib/components/PowerPanel.svelte';
+	import { demoSchedule } from '#lib/power/demo.ts';
 	import { feed } from '#lib/feed.svelte.ts';
 	import { regions } from '#lib/map/regions.ts';
 	import type { RegionState } from '#lib/types.ts';
@@ -22,8 +24,12 @@
 
 	let sheetHeight = $state(0);
 
+	// What the sheet shows for the selected region.
+	let mode = $state<'info' | 'power'>('info');
+
 	function select(uid: number) {
 		selected = selected === uid ? null : uid;
+		mode = 'info';
 	}
 
 	// The sheet must not cover the selected region: pan the map once the sheet is open.
@@ -67,8 +73,24 @@
 </div>
 
 {#if selectedRegion}
-	<Sheet label={selectedRegion.name} onclose={() => (selected = null)} bind:height={sheetHeight}>
-		<RegionCard region={selectedRegion} state={states.get(selectedRegion.uid)} {now} onclose={() => (selected = null)} />
+	<Sheet label={selectedRegion.name} onclose={() => (selected = null)} bind:height={sheetHeight} tall={mode === 'power'}>
+		{#if mode === 'power'}
+			<PowerPanel
+				region={selectedRegion}
+				schedule={demoSchedule(selectedRegion.uid, now)}
+				{now}
+				onback={() => (mode = 'info')}
+				onclose={() => (selected = null)}
+			/>
+		{:else}
+			<RegionCard
+				region={selectedRegion}
+				state={states.get(selectedRegion.uid)}
+				{now}
+				onclose={() => (selected = null)}
+				onpower={() => (mode = 'power')}
+			/>
+		{/if}
 	</Sheet>
 {/if}
 

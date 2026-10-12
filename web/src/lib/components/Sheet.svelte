@@ -10,9 +10,11 @@
 		onclose: () => void;
 		/** Sheet height, so the page can react to it. */
 		height?: number;
+		/** Taller sheet for longer content, such as power schedules. */
+		tall?: boolean;
 		children: Snippet;
 	}
-	let { label, onclose, height = $bindable(0), children }: Props = $props();
+	let { label, onclose, height = $bindable(0), tall = false, children }: Props = $props();
 
 	function onkeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape') onclose();
@@ -23,6 +25,7 @@
 
 <aside
 	class="sheet"
+	class:tall
 	aria-label={label}
 	bind:clientHeight={height}
 	transition:fly={{ y: 40, duration: 220, easing: cubicOut }}
@@ -47,6 +50,9 @@
 		background: var(--surface);
 		border: 1px solid var(--border);
 		box-shadow: var(--shadow);
+	}
+	.sheet.tall {
+		max-height: calc(100dvh - var(--header-h) - var(--nav-h) - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 	}
 	.grip {
 		width: 36px;

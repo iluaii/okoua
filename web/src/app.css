@@ -18,6 +18,8 @@
 	--map-calm: #dfe5ec;
 	--map-calm-hover: #cfd7e0;
 	--map-border: #ffffff;
+	--power-on: #bfe5cf;
+	--power-off: #3b4350;
 	--nav-h: 64px;
 	--header-h: 52px;
 	--column: 760px;
@@ -46,6 +48,8 @@
 		--map-calm: #2b323c;
 		--map-calm-hover: #36404c;
 		--map-border: #111418;
+		--power-on: #23553b;
+		--power-off: #07090c;
 		--shadow: 0 8px 28px rgb(0 0 0 / 0.45);
 		color-scheme: dark;
 	}
