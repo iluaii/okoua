@@ -17,14 +17,15 @@
 	const label = $derived(
 		outages.length === 0
 			? 'Відключень немає'
-			: 'Без світла: ' + outages.map((o) => `${hhmm(o.from)}–${hhmm(o.to)}`).join(', ')
+			: 'Без світла: ' +
+					outages.map((o) => `${hhmm(o.from)}–${hhmm(o.to)}${o.possible ? ' (можливо)' : ''}`).join(', ')
 	);
 </script>
 
 <div class="timeline" class:compact role="img" aria-label={label}>
 	<div class="bar">
 		{#each outages as o (o.from)}
-			<span class="off" style:left={pct(o.from)} style:width={pct(o.to - o.from)}></span>
+			<span class="off" class:possible={o.possible} style:left={pct(o.from)} style:width={pct(o.to - o.from)}></span>
 		{/each}
 		{#if now !== null}
 			<span class="now" style:left={pct(now)}></span>
@@ -59,6 +60,9 @@
 		top: 0;
 		bottom: 0;
 		background: var(--power-off);
+	}
+	.off.possible {
+		background: repeating-linear-gradient(45deg, var(--power-off) 0 3px, transparent 3px 6px);
 	}
 	.now {
 		position: absolute;

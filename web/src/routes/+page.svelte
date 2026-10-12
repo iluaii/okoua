@@ -5,7 +5,7 @@
 	import RegionCard from '#lib/components/RegionCard.svelte';
 	import Sheet from '#lib/components/Sheet.svelte';
 	import PowerPanel from '#lib/components/PowerPanel.svelte';
-	import { demoSchedule } from '#lib/power/demo.ts';
+	import { loadPower, type PowerLoad } from '#lib/power/types.ts';
 	import { feed } from '#lib/feed.svelte.ts';
 	import { regions } from '#lib/map/regions.ts';
 	import type { RegionState } from '#lib/types.ts';
@@ -27,9 +27,23 @@
 	// What the sheet shows for the selected region.
 	let mode = $state<'info' | 'power'>('info');
 
+	let power = $state<PowerLoad>({ kind: 'loading' });
+	let powerController: AbortController | undefined;
+
 	function select(uid: number) {
 		selected = selected === uid ? null : uid;
 		mode = 'info';
+	}
+
+	async function openPower() {
+		if (selected === null) return;
+		const uid = selected;
+		mode = 'power';
+		powerController?.abort();
+		powerController = new AbortController();
+		power = { kind: 'loading' };
+		const result = await loadPower(uid, powerController.signal);
+		if (selected === uid) power = result;
 	}
 
 	// The sheet must not cover the selected region: pan the map once the sheet is open.
@@ -77,10 +91,11 @@
 		{#if mode === 'power'}
 			<PowerPanel
 				region={selectedRegion}
-				schedule={demoSchedule(selectedRegion.uid, now)}
+				load={power}
 				{now}
 				onback={() => (mode = 'info')}
 				onclose={() => (selected = null)}
+				onretry={openPower}
 			/>
 		{:else}
 			<RegionCard
@@ -88,7 +103,7 @@
 				state={states.get(selectedRegion.uid)}
 				{now}
 				onclose={() => (selected = null)}
-				onpower={() => (mode = 'power')}
+				onpower={openPower}
 			/>
 		{/if}
 	</Sheet>

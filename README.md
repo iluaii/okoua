@@ -2,7 +2,7 @@
 
 A web app (PWA) for Ukraine that brings air-raid alerts, power outage schedules and regional news together in one place. The interface is in Ukrainian.
 
-Status: stage 1 is done, a live air-raid alert map. Power outage schedules are next.
+Status: a live air-raid alert map, and power outage schedules for six regions (Kyiv city; Kyiv, Dnipropetrovsk, Chernihiv, Kharkiv and Poltava oblasts).
 
 ## Layout
 
@@ -61,7 +61,16 @@ cd web && npm run check
 
 - `GET /api/alerts`: current state (JSON).
 - `GET /api/stream`: SSE; a full snapshot on connect and after every change.
+- `GET /api/power`: regions with power outage schedules.
+- `GET /api/power/{uid}`: today's and tomorrow's schedule for a region (404 if unsupported, 503 before the first fetch).
 - `GET /healthz`
+
+## Power outage schedules
+
+The server fetches schedules every 5 minutes (`server/internal/power/regions.go`):
+
+- Kyiv city and Dnipropetrovsk oblast: the YASNO (DTEK) public API.
+- Kyiv, Chernihiv, Kharkiv and Poltava oblasts: community datasets [outage-data-ua](https://github.com/Baskerville42/outage-data-ua) and [OE_OUTAGE_DATA](https://github.com/yaroslav2901/OE_OUTAGE_DATA), credited on the site.
 
 ## Map
 

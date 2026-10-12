@@ -2,18 +2,21 @@
 <!-- Power outage schedule for one region: pick a queue, see now/today/tomorrow and all queues. -->
 <script lang="ts">
 	import type { MapRegion } from '#lib/map/regions.ts';
-	import type { PowerDay, PowerSchedule } from '#lib/power/types.ts';
+	import type { PowerDay, PowerLoad } from '#lib/power/types.ts';
 	import { hhmm, hoursOff, kyivNow, powerAt } from '#lib/power/schedule.ts';
 	import PowerTimeline from './PowerTimeline.svelte';
 
 	interface Props {
 		region: MapRegion;
-		schedule: PowerSchedule | null;
+		load: PowerLoad;
 		now: number;
 		onback: () => void;
 		onclose: () => void;
+		onretry: () => void;
 	}
-	let { region, schedule, now, onback, onclose }: Props = $props();
+	let { region, load, now, onback, onclose, onretry }: Props = $props();
+
+	const schedule = $derived(load.kind === 'ok' ? load.schedule : null);
 
 	// The chosen queue is a per-browser convenience; storage may be unavailable.
 	const storageKey = $derived(`power.queue.${region.uid}`);
@@ -33,21 +36,43 @@
 			// Not saved; the choice still works for this visit.
 		}
 	}
+	// A saved queue the source no longer has is treated as not chosen.
+	const myQueue = $derived(queue && schedule?.queues.includes(queue) ? queue : null);
 
 	const nowKyiv = $derived(kyivNow(now));
 	const today = $derived(schedule?.today);
-	const mine = $derived(queue && today?.status === 'schedule' ? (today.queues[queue] ?? []) : null);
-	const power = $derived(mine ? powerAt(mine, nowKyiv.minutes) : null);
+	const mine = $derived(myQueue && today?.status === 'schedule' ? (today.queues[myQueue] ?? []) : null);
+	const definite = $derived(mine?.filter((o) => !o.possible) ?? []);
+	const possible = $derived(mine?.filter((o) => o.possible) ?? []);
+	const power = $derived(mine ? powerAt(definite, nowKyiv.minutes) : null);
+	const possibleNow = $derived(possible.find((o) => o.from <= nowKyiv.minutes && nowKyiv.minutes < o.to));
 
-	function dayNote(day: PowerDay): string | null {
-		if (day.status === 'waiting') return 'Графік ще не опублікований';
-		if (day.status === 'none') return 'Відключень не заплановано';
-		return null;
+	function dayNote(day: PowerDay): string {
+		switch (day.status) {
+			case 'waiting':
+				return 'Графік ще не опублікований';
+			case 'none':
+				return 'Відключень не заплановано';
+			case 'unknown':
+				return 'Джерело не дало графік на цей день. Перевірте на сайті обленерго.';
+			default:
+				return '';
+		}
 	}
 
-	const updated = $derived(
-		schedule ? new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' }).format(new Date(schedule.updatedAt)) : ''
-	);
+	const timeFmt = new Intl.DateTimeFormat('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kyiv' });
+	const dateTimeFmt = new Intl.DateTimeFormat('uk-UA', {
+		day: '2-digit',
+		month: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		timeZone: 'Europe/Kyiv'
+	});
+	/** «о 09:57» today, «12.10, 00:02» on another day. */
+	function when(iso: string): string {
+		const t = new Date(iso);
+		return kyivNow(t.getTime()).date === nowKyiv.date ? `о ${timeFmt.format(t)}` : dateTimeFmt.format(t);
+	}
 </script>
 
 <section class="panel" aria-labelledby="power-title">
@@ -57,20 +82,27 @@
 		<button class="icon" onclick={onclose} aria-label="Закрити">✕</button>
 	</header>
 
-	{#if !schedule}
+	{#if load.kind === 'loading'}
+		<p class="empty">Завантаження…</p>
+	{:else if load.kind === 'unsupported'}
 		<p class="empty">Графіки для цієї області поки не підтримуються. Дивіться сайт або Telegram-канал вашого обленерго.</p>
-	{:else}
-		{#if schedule.demo}
-			<p class="demo">Демо: приклад графіка, не справжні дані</p>
+	{:else if load.kind === 'error'}
+		<p class="empty">Не вдалося отримати графік. Сервер ще не встиг його завантажити або немає зв'язку.</p>
+		<button class="retry" onclick={onretry}>Спробувати ще раз</button>
+	{:else if schedule}
+		{#if schedule.stale}
+			<p class="warn">Дані можуть бути застарілими. Перевірте графік у джерелі.</p>
 		{/if}
 
 		<div class="queues" role="radiogroup" aria-label="Черга">
 			{#each schedule.queues as q (q)}
-				<button role="radio" aria-checked={queue === q} class:active={queue === q} onclick={() => pick(q)}>{q}</button>
+				<button role="radio" aria-checked={myQueue === q} class:active={myQueue === q} onclick={() => pick(q)}>{q}</button>
 			{/each}
 		</div>
 
-		{#if !queue}
+		{#if today && today.status !== 'schedule'}
+			<p class="note today-note">Сьогодні: {dayNote(today).charAt(0).toLowerCase() + dayNote(today).slice(1)}</p>
+		{:else if !myQueue}
 			<p class="hint">Оберіть свою чергу, щоб бачити свій графік.</p>
 		{:else if today && mine && power}
 			<div class="now" class:off={!power.on}>
@@ -79,6 +111,9 @@
 					{#if !power.on}
 						<strong>Світла немає</strong>
 						<span>увімкнуть о {hhmm(power.until)}</span>
+					{:else if possibleNow}
+						<strong>Можливе відключення</strong>
+						<span>до {hhmm(possibleNow.to)}</span>
 					{:else if power.nextOff !== null}
 						<strong>Світло є</strong>
 						<span>відключення о {hhmm(power.nextOff)}–{hhmm(power.nextOffTo ?? 1440)}</span>
@@ -89,26 +124,27 @@
 				</div>
 			</div>
 
-			<h3>Сьогодні <span class="sub">· без світла {hoursOff(mine).toLocaleString('uk-UA')} год</span></h3>
+			<h3>Сьогодні <span class="sub">· без світла {hoursOff(definite).toLocaleString('uk-UA')} год</span></h3>
 			<PowerTimeline outages={mine} now={nowKyiv.minutes} />
+			{#if possible.length > 0}
+				<p class="legend"><i class="sw possible"></i>Можливі відключення: {possible.map((o) => `${hhmm(o.from)}–${hhmm(o.to)}`).join(', ')}</p>
+			{/if}
 
 			<h3>Завтра</h3>
 			{#if schedule.tomorrow.status === 'schedule'}
-				<PowerTimeline outages={schedule.tomorrow.queues[queue] ?? []} />
+				<PowerTimeline outages={schedule.tomorrow.queues[myQueue] ?? []} />
 			{:else}
 				<p class="note">{dayNote(schedule.tomorrow)}</p>
 			{/if}
-		{:else if today}
-			<p class="note">{dayNote(today)}</p>
 		{/if}
 
 		{#if today?.status === 'schedule'}
-			<details open={!queue}>
+			<details open={!myQueue}>
 				<summary>Усі черги на сьогодні</summary>
 				<ul class="all">
 					{#each schedule.queues as q (q)}
 						<li>
-							<button class:active={queue === q} onclick={() => pick(q)}>
+							<button class:active={myQueue === q} onclick={() => pick(q)}>
 								<span class="q">{q}</span>
 								<PowerTimeline outages={today.queues[q] ?? []} now={nowKyiv.minutes} compact />
 							</button>
@@ -129,7 +165,12 @@
 				{:else}
 					{schedule.source.name}
 				{/if}
-				· оновлено о {updated}
+				{#if schedule.via}
+					(через <a href={schedule.via.url} target="_blank" rel="noopener">{schedule.via.name}</a>)
+				{/if}
+			</span>
+			<span>
+				{schedule.updatedAt ? `Графік оновлено ${when(schedule.updatedAt)} · ` : ''}перевірено {when(schedule.checkedAt)}
 			</span>
 		</footer>
 	{/if}
@@ -162,19 +203,20 @@
 	.icon:hover {
 		background: var(--surface-2);
 	}
-	.demo {
+	.warn {
 		margin: 0 0 10px;
-		padding: 5px 10px;
+		padding: 6px 10px;
 		border-radius: 8px;
 		background: var(--warn-bg);
 		color: var(--warn-text);
-		font-size: 0.8rem;
-		font-weight: 600;
+		font-size: 0.85rem;
 	}
 	.queues {
 		display: grid;
 		grid-template-columns: repeat(6, 1fr);
 		gap: 6px;
+		max-height: 200px;
+		overflow-y: auto;
 	}
 	.queues button {
 		padding: 8px 0;
@@ -197,6 +239,16 @@
 	.empty {
 		margin: 12px 0 4px;
 		color: var(--muted);
+	}
+	.retry {
+		margin-top: 8px;
+		padding: 8px 14px;
+		border: 1px solid var(--accent);
+		border-radius: 10px;
+		background: transparent;
+		color: var(--accent);
+		font: inherit;
+		cursor: pointer;
 	}
 	.now {
 		display: flex;
@@ -235,6 +287,24 @@
 		color: var(--muted);
 		font-size: 0.9rem;
 	}
+	.today-note {
+		margin-top: 12px;
+	}
+	.legend {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin: 6px 0 0;
+		font-size: 0.8rem;
+		color: var(--muted);
+	}
+	.sw.possible {
+		flex: none;
+		width: 12px;
+		height: 12px;
+		border-radius: 3px;
+		background: repeating-linear-gradient(45deg, var(--power-off) 0 2px, var(--power-on) 2px 4px);
+	}
 	details {
 		margin-top: 18px;
 	}
@@ -271,7 +341,7 @@
 	}
 	.q {
 		flex: none;
-		width: 2.4em;
+		width: 2.6em;
 		font-size: 0.85rem;
 		font-variant-numeric: tabular-nums;
 		text-align: left;

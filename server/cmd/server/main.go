@@ -19,6 +19,7 @@ import (
 	"alert-concept/server/internal/alerts"
 	"alert-concept/server/internal/api"
 	"alert-concept/server/internal/hub"
+	"alert-concept/server/internal/power"
 )
 
 func main() {
@@ -47,9 +48,16 @@ func run(log *slog.Logger) error {
 	h := hub.New(src, interval, log)
 	go h.Run(ctx)
 
+	powerInterval, err := time.ParseDuration(env("POWER_INTERVAL", "5m"))
+	if err != nil || powerInterval < time.Minute {
+		return fmt.Errorf("POWER_INTERVAL: need a duration of at least 1m, got %q", os.Getenv("POWER_INTERVAL"))
+	}
+	p := power.NewService(power.DefaultRegions(), powerInterval, log)
+	go p.Run(ctx)
+
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           api.New(h, os.Getenv("STATIC_DIR")),
+		Handler:           api.New(h, p, os.Getenv("STATIC_DIR")),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 		// Request contexts are cancelled on shutdown; otherwise open SSE connections would block Shutdown.

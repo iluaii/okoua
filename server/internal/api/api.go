@@ -4,15 +4,19 @@
 package api
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"alert-concept/server/internal/hub"
+	"alert-concept/server/internal/power"
 )
 
 const heartbeatEvery = 20 * time.Second
 
-func New(h *hub.Hub, staticDir string) http.Handler {
+func New(h *hub.Hub, p *power.Service, staticDir string) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/alerts", func(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +27,29 @@ func New(h *hub.Hub, staticDir string) http.Handler {
 
 	mux.HandleFunc("GET /api/stream", func(w http.ResponseWriter, r *http.Request) {
 		stream(w, r, h)
+	})
+
+	mux.HandleFunc("GET /api/power", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string][]int{"regions": p.Supported()})
+	})
+
+	mux.HandleFunc("GET /api/power/{uid}", func(w http.ResponseWriter, r *http.Request) {
+		uid, err := strconv.Atoi(r.PathValue("uid"))
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "bad region"})
+			return
+		}
+		sch, err := p.Get(uid)
+		switch {
+		case errors.Is(err, power.ErrUnsupported):
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "unsupported"})
+		case errors.Is(err, power.ErrNoData):
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "no data yet"})
+		case err != nil:
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal"})
+		default:
+			writeJSON(w, http.StatusOK, sch)
+		}
 	})
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -79,4 +106,11 @@ func stream(w http.ResponseWriter, r *http.Request, h *hub.Hub) {
 			}
 		}
 	}
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(v)
 }

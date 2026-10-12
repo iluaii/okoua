@@ -16,7 +16,10 @@ import (
 
 	"alert-concept/server/internal/alerts"
 	"alert-concept/server/internal/hub"
+	"alert-concept/server/internal/power"
 )
+
+var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type staticSource struct{}
 
@@ -32,7 +35,7 @@ func TestStreamSendsSnapshotOnConnect(t *testing.T) {
 	h := hub.New(staticSource{}, time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	go h.Run(ctx)
 
-	srv := httptest.NewServer(New(h, ""))
+	srv := httptest.NewServer(New(h, power.NewService(nil, time.Hour, discard), ""))
 	defer srv.Close()
 
 	// Wait for the first poll so the snapshot is not empty.
@@ -76,12 +79,35 @@ func TestStreamSendsSnapshotOnConnect(t *testing.T) {
 func TestAlertsSnapshot(t *testing.T) {
 	h := hub.New(staticSource{}, time.Hour, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	rec := httptest.NewRecorder()
-	New(h, "").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/alerts", nil))
+	New(h, power.NewService(nil, time.Hour, discard), "").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/alerts", nil))
 	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("code %d, headers %v", rec.Code, rec.Header())
 	}
 	var s hub.State
 	if err := json.Unmarshal(rec.Body.Bytes(), &s); err != nil || !s.Stale {
 		t.Fatalf("state %+v, err %v (want stale before first poll)", s, err)
+	}
+}
+
+func TestPowerRoutes(t *testing.T) {
+	h := hub.New(staticSource{}, time.Hour, discard)
+	handler := New(h, power.NewService([]power.Region{{UID: 25}}, time.Hour, discard), "")
+
+	cases := []struct {
+		path string
+		code int
+		body string
+	}{
+		{"/api/power", http.StatusOK, `{"regions":[25]}`},
+		{"/api/power/3", http.StatusNotFound, "unsupported"},
+		{"/api/power/25", http.StatusServiceUnavailable, "no data"},
+		{"/api/power/abc", http.StatusBadRequest, "bad region"},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, c.path, nil))
+		if rec.Code != c.code || !strings.Contains(rec.Body.String(), c.body) {
+			t.Errorf("%s: %d %q, want %d containing %q", c.path, rec.Code, rec.Body.String(), c.code, c.body)
+		}
 	}
 }
