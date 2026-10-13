@@ -5,6 +5,7 @@
 	import { version } from '$app/env';
 
 	const MAX_MESSAGE = 1000;
+	const MAX_CONTACT = 100;
 
 	const categories: { id: string; label: string; subs: [string, string][] }[] = [
 		{
@@ -65,6 +66,7 @@
 	let category = $state<string | null>(null);
 	let subcategory = $state<string | null>(null);
 	let message = $state('');
+	let contact = $state('');
 	let website = $state(''); // honeypot, hidden from people
 	let status = $state<'idle' | 'sending' | 'sent' | 'error' | 'limited'>('idle');
 
@@ -75,6 +77,7 @@
 		category = preset?.id ?? null;
 		subcategory = preset?.subs.some(([id]) => id === presetSubcategory) ? (presetSubcategory ?? null) : null;
 		message = '';
+		contact = '';
 		website = '';
 		status = 'idle';
 		dialog?.showModal();
@@ -101,6 +104,7 @@
 					category,
 					subcategory,
 					message: message.trim(),
+					contact: contact.trim(),
 					page: page.url.pathname,
 					version,
 					website
@@ -161,6 +165,11 @@
 					<span class="counter">{message.length}/{MAX_MESSAGE}</span>
 				</label>
 
+				<label class="message">
+					<span>Як з вами зв'язатися <span class="optional">(якщо хочете відповідь)</span></span>
+					<input type="text" bind:value={contact} maxlength={MAX_CONTACT} autocomplete="off" placeholder="Telegram або email" />
+				</label>
+
 				<!-- Honeypot: invisible to people, bots tend to fill every field. -->
 				<input class="trap" type="text" name="website" bind:value={website} tabindex="-1" autocomplete="off" aria-hidden="true" />
 
@@ -178,7 +187,7 @@
 
 				<p class="privacy">
 					Відгук анонімний: ми не зберігаємо вашу IP-адресу чи інші дані про вас. Разом із текстом надсилаються лише
-					сторінка й версія сайту.
+					сторінка й версія сайту, а контакт тільки якщо ви його залишили.
 				</p>
 			</form>
 		{/if}
@@ -267,7 +276,8 @@
 		font-weight: 400;
 		color: var(--muted);
 	}
-	textarea {
+	textarea,
+	input[type='text']:not(.trap) {
 		width: 100%;
 		padding: 10px 12px;
 		border: 1px solid var(--border);
@@ -278,7 +288,8 @@
 		font-weight: 400;
 		resize: vertical;
 	}
-	textarea:focus {
+	textarea:focus,
+	input[type='text']:not(.trap):focus {
 		outline: 2px solid var(--focus);
 		outline-offset: -1px;
 	}

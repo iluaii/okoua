@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package feedback accepts anonymous user feedback, rate-limits it and stores it in SQLite.
-// No IP addresses or other identifiers are stored.
+// No IP addresses or other identifiers are stored; a contact is kept only if the person leaves one.
 package feedback
 
 import (
@@ -28,6 +28,7 @@ var Categories = map[string][]string{
 
 const (
 	MaxMessage = 1000 // characters
+	MaxContact = 100  // characters
 	maxBody    = 4 << 10
 	maxPage    = 200
 	maxVersion = 40
@@ -39,6 +40,7 @@ type request struct {
 	Message     string `json:"message"`
 	Page        string `json:"page"`
 	Version     string `json:"version"`
+	Contact     string `json:"contact"`
 	// Website is a honeypot: the field is hidden from people, so only bots fill it.
 	Website string `json:"website"`
 }
@@ -121,11 +123,15 @@ func validate(req request) (Entry, error) {
 	if !strings.HasPrefix(page, "/") || len(page) > maxPage {
 		page = ""
 	}
+	contact := Clean(req.Contact, false)
+	if utf8.RuneCountInString(contact) > MaxContact {
+		return Entry{}, errors.New("contact too long")
+	}
 	version := Clean(req.Version, false)
 	if len(version) > maxVersion {
 		version = ""
 	}
-	return Entry{Category: req.Category, Subcategory: req.Subcategory, Message: msg, Page: page, Version: version}, nil
+	return Entry{Category: req.Category, Subcategory: req.Subcategory, Message: msg, Page: page, Version: version, Contact: contact}, nil
 }
 
 // Clean trims the text and drops control characters (which could, for example, inject

@@ -20,6 +20,8 @@ type Entry struct {
 	Message     string
 	Page        string
 	Version     string
+	// Contact is how to reach the person for a reply, only if they chose to leave it.
+	Contact string
 }
 
 // Store keeps feedback in SQLite.
@@ -36,7 +38,8 @@ CREATE TABLE IF NOT EXISTS feedback (
 	subcategory TEXT    NOT NULL,
 	message     TEXT    NOT NULL,
 	page        TEXT    NOT NULL,
-	version     TEXT    NOT NULL
+	version     TEXT    NOT NULL,
+	contact     TEXT    NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS feedback_created_at ON feedback (created_at);
 `
@@ -61,6 +64,16 @@ func NewStore(db *sql.DB) (*Store, error) {
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("feedback: schema: %w", err)
 	}
+	// Databases created before the contact field have no such column.
+	var n int
+	if err := db.QueryRow(`SELECT count(*) FROM pragma_table_info('feedback') WHERE name = 'contact'`).Scan(&n); err != nil {
+		return nil, fmt.Errorf("feedback: schema: %w", err)
+	}
+	if n == 0 {
+		if _, err := db.Exec(`ALTER TABLE feedback ADD COLUMN contact TEXT NOT NULL DEFAULT ''`); err != nil {
+			return nil, fmt.Errorf("feedback: add contact: %w", err)
+		}
+	}
 	return &Store{db: db}, nil
 }
 
@@ -74,15 +87,15 @@ func (s *Store) Close() error {
 
 func (s *Store) Add(ctx context.Context, e Entry) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO feedback (created_at, category, subcategory, message, page, version) VALUES (?, ?, ?, ?, ?, ?)`,
-		time.Now().UTC().Format(time.RFC3339), e.Category, e.Subcategory, e.Message, e.Page, e.Version)
+		`INSERT INTO feedback (created_at, category, subcategory, message, page, version, contact) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		time.Now().UTC().Format(time.RFC3339), e.Category, e.Subcategory, e.Message, e.Page, e.Version, e.Contact)
 	return err
 }
 
 // List returns the newest entries first.
 func (s *Store) List(ctx context.Context, limit int) ([]Entry, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, created_at, category, subcategory, message, page, version FROM feedback ORDER BY id DESC LIMIT ?`, limit)
+		`SELECT id, created_at, category, subcategory, message, page, version, contact FROM feedback ORDER BY id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +104,7 @@ func (s *Store) List(ctx context.Context, limit int) ([]Entry, error) {
 	for rows.Next() {
 		var e Entry
 		var created string
-		if err := rows.Scan(&e.ID, &created, &e.Category, &e.Subcategory, &e.Message, &e.Page, &e.Version); err != nil {
+		if err := rows.Scan(&e.ID, &created, &e.Category, &e.Subcategory, &e.Message, &e.Page, &e.Version, &e.Contact); err != nil {
 			return nil, err
 		}
 		e.CreatedAt, _ = time.Parse(time.RFC3339, created)

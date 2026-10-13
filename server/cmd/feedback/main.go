@@ -49,6 +49,9 @@ func main() {
 	for _, e := range list {
 		fmt.Printf("#%d  %s  %s/%s  page=%s  version=%s\n", e.ID, e.CreatedAt.Local().Format("2006-01-02 15:04"),
 			e.Category, e.Subcategory, e.Page, e.Version)
+		if e.Contact != "" {
+			fmt.Println("    contact: " + e.Contact)
+		}
 		if e.Message != "" {
 			// Messages are cleaned on input; indent them so they can't pass for metadata lines.
 			fmt.Println("    " + strings.ReplaceAll(e.Message, "\n", "\n    "))

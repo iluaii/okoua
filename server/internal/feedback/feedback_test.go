@@ -53,11 +53,12 @@ func TestHandler(t *testing.T) {
 		name, body, ct string
 		code           int
 	}{
-		{"ok", `{"category":"ai","subcategory":"russian","message":"  відповідь російською  ","page":"/ai/","version":"1"}`, "application/json", 204},
+		{"ok", `{"category":"ai","subcategory":"russian","message":"  відповідь російською  ","page":"/ai/","version":"1","contact":" @friend "}`, "application/json", 204},
 		{"form post", `category=ai`, "application/x-www-form-urlencoded", 415},
 		{"bad category", `{"category":"x","subcategory":"other"}`, "application/json", 400},
 		{"bad subcategory", `{"category":"ai","subcategory":"missing"}`, "application/json", 400},
 		{"too long", `{"category":"ai","subcategory":"other","message":"` + strings.Repeat("я", MaxMessage+1) + `"}`, "application/json", 400},
+		{"contact too long", `{"category":"ai","subcategory":"other","contact":"` + strings.Repeat("я", MaxContact+1) + `"}`, "application/json", 400},
 		{"body too large", `{"category":"ai","subcategory":"other","message":"` + strings.Repeat("x", maxBody) + `"}`, "application/json", 413},
 		{"honeypot", `{"category":"ai","subcategory":"other","website":"http://spam"}`, "application/json", 204},
 	}
@@ -74,8 +75,33 @@ func TestHandler(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("stored %d entries, want only the valid one (honeypot dropped): %+v", len(list), list)
 	}
-	if e := list[0]; e.Category != "ai" || e.Subcategory != "russian" || e.Message != "відповідь російською" || e.Page != "/ai/" {
+	if e := list[0]; e.Category != "ai" || e.Subcategory != "russian" || e.Message != "відповідь російською" || e.Page != "/ai/" || e.Contact != "@friend" {
 		t.Errorf("entry = %+v", e)
+	}
+}
+
+func TestStoreAddsContactColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A database from before the contact field.
+	if _, err := s.db.Exec(`DROP TABLE feedback; CREATE TABLE feedback (id INTEGER PRIMARY KEY, created_at TEXT NOT NULL,
+		category TEXT NOT NULL, subcategory TEXT NOT NULL, message TEXT NOT NULL, page TEXT NOT NULL, version TEXT NOT NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	if s, err = Open(path); err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	ctx := context.Background()
+	if err := s.Add(ctx, Entry{Category: "other", Subcategory: "idea", Contact: "a@b.c"}); err != nil {
+		t.Fatal(err)
+	}
+	if list, err := s.List(ctx, 1); err != nil || list[0].Contact != "a@b.c" {
+		t.Errorf("list = %+v, %v", list, err)
 	}
 }
 
