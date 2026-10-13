@@ -36,5 +36,5 @@ export const project = {
 	 * left no comment stay anonymous and are simply not listed. Example:
 	 * { name: 'Олена з Ніжина' } or { name: 'Компанія X', note: 'сервер на рік' }
 	 */
-	thanks: [] as { name: string; note?: string }[]
+	thanks: [{ name: 'chesser' }] as { name: string; note?: string }[]
 };
