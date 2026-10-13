@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Oblast map with zoom: mouse wheel, two-finger pinch, drag, buttons. -->
 <script lang="ts">
-	import { raions, raionMesh, regions, viewBox as baseViewBox } from '#lib/map/regions.ts';
-	import { placedOnRaions, placeNames, raionStatuses } from '#lib/map/places.ts';
+	import { regions, viewBox as baseViewBox } from '#lib/map/regions.ts';
+	import { placedOnRaions, placeNames, raionShapes, raionStatuses } from '#lib/map/places.svelte.ts';
 	import type { RegionState } from '#lib/types.ts';
 
 	interface Props {
@@ -31,7 +31,8 @@
 	// Partial alerts are drawn on their raions; an oblast whose alerts can't all be placed
 	// (unknown raion, source without raions) is hatched as a whole instead.
 	const raionState = $derived(raionStatuses(states.values()));
-	const alertRaions = $derived(raions.filter((r) => raionState.has(r.id)));
+	const shapes = $derived(raionShapes());
+	const alertRaions = $derived(shapes.raions.filter((r) => raionState.has(r.id)));
 
 	/** Screen coordinates to map coordinates. */
 	function toMap(clientX: number, clientY: number) {
@@ -246,7 +247,7 @@
 	{#each alertRaions as r (r.id)}
 		<path d={r.d} class="raion" class:partial={raionState.get(r.id) === 'partial'} aria-hidden="true" />
 	{/each}
-	<path d={raionMesh} class="mesh" aria-hidden="true" />
+	{#if shapes.mesh}<path d={shapes.mesh} class="mesh" aria-hidden="true" />{/if}
 	{#each regions as r (r.uid)}
 		<path d={r.d} class="border" aria-hidden="true" />
 	{/each}

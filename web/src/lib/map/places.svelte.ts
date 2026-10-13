@@ -1,13 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Where alerts are: raions on the map and place names for people.
 
-import { raions, type MapRaion } from './regions.ts';
+import type { MapRaion } from './regions.ts';
 import type { Alert, RegionState } from '../types.ts';
 
-const raionById = new Map(raions.map((r) => [r.id, r]));
+// Raion shapes are about two thirds of the map's weight, so they load in the background:
+// the map first shows oblasts only, and partial alerts hatch the whole oblast until raions arrive.
+let loaded = $state<{ raions: MapRaion[]; mesh: string; byId: Map<string, MapRaion> } | null>(null);
+
+if (typeof window !== 'undefined') {
+	import('./raions.ts')
+		.then((m) => (loaded = { raions: m.raions, mesh: m.raionMesh, byId: new Map(m.raions.map((r) => [r.id, r])) }))
+		.catch(() => {}); // offline without cache: the map keeps working without raions
+}
+
+/** Raions and the borders between them, once loaded. */
+export function raionShapes(): { raions: MapRaion[]; mesh: string } {
+	return loaded ?? { raions: [], mesh: '' };
+}
 
 export function raionOf(a: Alert): MapRaion | undefined {
-	return a.raionUid ? raionById.get(a.raionUid) : undefined;
+	return a.raionUid ? loaded?.byId.get(a.raionUid) : undefined;
 }
 
 /** Raions under alert: full when the raion itself has an alert, partial when only hromadas in it do. */

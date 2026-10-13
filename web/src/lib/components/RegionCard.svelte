@@ -4,7 +4,7 @@
 	import type { RegionState } from '#lib/types.ts';
 	import { alertTypeLabel, formatDuration, formatStart } from '#lib/format.ts';
 	import { follows } from '#lib/push.svelte.ts';
-	import { placeName } from '#lib/map/places.ts';
+	import { placeName } from '#lib/map/places.svelte.ts';
 
 	interface Props {
 		region: MapRegion;

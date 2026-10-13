@@ -4,7 +4,7 @@
 // exact, instant and free. Texts are Ukrainian because they are shown to users.
 
 import { regions, neighbours } from './map/regions.ts';
-import { placeNames } from './map/places.ts';
+import { placeNames } from './map/places.svelte.ts';
 import type { AlertsState, RegionState } from './types.ts';
 import type { PowerSchedule } from './power/types.ts';
 import type { NewsItem } from './news/types.ts';
