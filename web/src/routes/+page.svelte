@@ -71,22 +71,26 @@
 <div class="stage">
 	<UkraineMap bind:this={map} {states} {selected} onselect={select} onclear={() => (selected = null)} />
 
-	{#if feed.status.detail}
-		<p class="warning" role="status">{feed.status.detail}</p>
-	{/if}
+	<!-- Top overlay: the warning spans the width, the legend and zoom buttons go under it whatever its height. -->
+	<div class="overlay">
+		{#if feed.status.detail}
+			<p class="warning" role="status">{feed.status.detail}</p>
+		{/if}
+		<div class="row">
+			<div class="legend" aria-hidden="true">
+				<span><i class="sw full"></i>Тривога</span>
+				<span><i class="sw partial"></i>Окремі громади</span>
+				<span><i class="sw calm"></i>Немає</span>
+			</div>
 
-	<div class="legend" aria-hidden="true">
-		<span><i class="sw full"></i>Тривога</span>
-		<span><i class="sw partial"></i>Окремі громади</span>
-		<span><i class="sw calm"></i>Немає</span>
-	</div>
-
-	<div class="zoom">
-		<button onclick={() => map?.zoomBy(1.6)} aria-label="Наблизити">+</button>
-		<button onclick={() => map?.zoomBy(1 / 1.6)} aria-label="Віддалити">−</button>
-		<button onclick={() => map?.reset()} aria-label="Показати всю карту">
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
-		</button>
+			<div class="zoom">
+				<button onclick={() => map?.zoomBy(1.6)} aria-label="Наблизити">+</button>
+				<button onclick={() => map?.zoomBy(1 / 1.6)} aria-label="Віддалити">−</button>
+				<button onclick={() => map?.reset()} aria-label="Показати всю карту">
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+				</button>
+			</div>
+		</div>
 	</div>
 </div>
 
@@ -123,13 +127,24 @@
 		overflow: hidden;
 		background: var(--bg);
 	}
-	.warning {
+	/* Taps go through the overlay to the map, except on the buttons. */
+	.overlay {
 		position: absolute;
-		top: 12px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: max-content;
-		max-width: calc(100% - 2 * var(--gutter));
+		inset: 12px var(--gutter) auto var(--gutter);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 8px;
+		pointer-events: none;
+	}
+	.row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		align-self: stretch;
+	}
+	.warning {
+		max-width: 100%;
 		margin: 0;
 		padding: 8px 12px;
 		border-radius: 12px;
@@ -139,9 +154,6 @@
 		box-shadow: var(--shadow);
 	}
 	.legend {
-		position: absolute;
-		left: var(--gutter);
-		top: 12px;
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
@@ -176,9 +188,6 @@
 		background: repeating-linear-gradient(45deg, var(--alert) 0 2px, var(--map-calm) 2px 4px);
 	}
 	.zoom {
-		position: absolute;
-		right: var(--gutter);
-		top: 12px;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
@@ -186,6 +195,7 @@
 		background: color-mix(in srgb, var(--surface) 88%, transparent);
 		backdrop-filter: blur(8px);
 		border: 1px solid var(--border);
+		pointer-events: auto;
 	}
 	.zoom button {
 		width: 40px;
@@ -213,10 +223,5 @@
 		stroke-linecap: round;
 		stroke-linejoin: round;
 		vertical-align: middle;
-	}
-	/* When a warning is shown at the top, move the legend and buttons down. */
-	.warning ~ .legend,
-	.warning ~ .zoom {
-		top: 64px;
 	}
 </style>
