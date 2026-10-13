@@ -4,6 +4,7 @@
 // exact, instant and free. Texts are Ukrainian because they are shown to users.
 
 import { regions, neighbours } from './map/regions.ts';
+import { placeNames } from './map/places.ts';
 import type { AlertsState, RegionState } from './types.ts';
 import type { PowerSchedule } from './power/types.ts';
 import type { NewsItem } from './news/types.ts';
@@ -34,7 +35,8 @@ const short = (uid: number) => (names.get(uid) ?? String(uid)).replace(' обл�
 function regionLine(uid: number, state: RegionState | undefined, now: number): Line {
 	if (!state) return { text: `🟢 ${short(uid)}: тривоги немає`, tone: 'ok' };
 	const kind = alertTypeLabel(state.alerts[0]?.type ?? '').toLowerCase();
-	const where = state.status === 'partial' ? ' (частина області)' : '';
+	const places = state.status === 'partial' ? placeNames(state) : [];
+	const where = state.status !== 'partial' ? '' : places.length ? ` (${places.join(', ')})` : ' (частина області)';
 	return { text: `🔴 ${short(uid)}: ${kind}${where}, ${formatDuration(earliestStart(state.alerts), now)}`, tone: 'alert' };
 }
 

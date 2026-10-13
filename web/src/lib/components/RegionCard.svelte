@@ -4,6 +4,7 @@
 	import type { RegionState } from '#lib/types.ts';
 	import { alertTypeLabel, formatDuration, formatStart } from '#lib/format.ts';
 	import { follows } from '#lib/push.svelte.ts';
+	import { placeName } from '#lib/map/places.ts';
 
 	interface Props {
 		region: MapRegion;
@@ -35,7 +36,7 @@
 				<li>
 					<span class="type">{alertTypeLabel(a.type)}</span>
 					{#if state.status === 'partial' || a.locationType !== 'oblast'}
-						<span class="where">{a.locationTitle}</span>
+						<span class="where">{placeName(a)}</span>
 					{/if}
 					<span class="when">{formatStart(a.startedAt, now)} · {formatDuration(a.startedAt, now)}</span>
 				</li>

@@ -24,6 +24,14 @@ type Mock struct {
 // Regions with a permanent alert, as in reality.
 var mockPermanent = []int{16, 29}
 
+// Real district IDs, so partial alerts land on raions of the map.
+var mockDistricts = map[int][][2]string{
+	9:  {{"44", "Дніпровський район"}, {"45", "Павлоградський район"}, {"47", "Нікопольський район"}},
+	20: {{"114", "Сумський район"}, {"115", "Шосткинський район"}, {"117", "Конотопський район"}},
+	22: {{"122", "Чугуївський район"}, {"124", "Харківський район"}, {"125", "Ізюмський район"}},
+	25: {{"141", "Новгород-Сіверський район"}, {"142", "Ніжинський район"}, {"144", "Корюківський район"}},
+}
+
 func NewMock() *Mock {
 	m := &Mock{rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0)), now: time.Now}
 	start := m.now().Add(-72 * time.Hour)
@@ -31,6 +39,7 @@ func NewMock() *Mock {
 		m.add(uid, true, "air_raid", start)
 	}
 	m.add(22, false, "air_raid", m.now().Add(-25*time.Minute))
+	m.add(25, false, "air_raid", m.now().Add(-10*time.Minute))
 	m.add(9, true, "air_raid", m.now().Add(-70*time.Minute))
 	return m
 }
@@ -92,14 +101,21 @@ func (m *Mock) add(uid int, whole bool, typ string, at time.Time) {
 		OblastUID: uid,
 		StartedAt: at.UTC().Truncate(time.Second),
 	}
-	if whole {
+	districts := mockDistricts[uid]
+	switch {
+	case whole || len(districts) == 0:
 		a.LocationUID = fmt.Sprint(uid)
 		a.LocationTitle = Regions[uid]
 		a.LocationType = "oblast"
-	} else {
-		a.LocationUID = fmt.Sprintf("%d-r%d", uid, m.nextID)
-		a.LocationTitle = "Тестовий район" // shown in the UI, so Ukrainian
-		a.LocationType = "raion"
+	case m.rng.Float64() < 0.3:
+		d := districts[m.rng.IntN(len(districts))]
+		a.LocationUID = fmt.Sprintf("%s-h%d", d[0], m.nextID)
+		a.LocationTitle = "Тестова громада" // shown in the UI, so Ukrainian
+		a.LocationType = "hromada"
+		a.RaionUID = d[0]
+	default:
+		d := districts[m.rng.IntN(len(districts))]
+		a.LocationUID, a.LocationTitle, a.LocationType, a.RaionUID = d[0], d[1], "raion", d[0]
 	}
 	m.alerts = append(m.alerts, a)
 }

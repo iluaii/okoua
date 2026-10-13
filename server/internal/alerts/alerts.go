@@ -12,13 +12,16 @@ import (
 
 // Alert is one active alert, normalized so it does not depend on the source.
 type Alert struct {
-	ID            string    `json:"id"`
-	Type          string    `json:"type"` // air_raid, artillery_shelling, urban_fights, chemical, nuclear
-	OblastUID     int       `json:"oblastUid"`
-	LocationUID   string    `json:"locationUid"`
-	LocationTitle string    `json:"locationTitle"`
-	LocationType  string    `json:"locationType"` // oblast, raion, city, hromada, unknown
-	StartedAt     time.Time `json:"startedAt"`
+	ID            string `json:"id"`
+	Type          string `json:"type"` // air_raid, artillery_shelling, urban_fights, chemical, nuclear
+	OblastUID     int    `json:"oblastUid"`
+	LocationUID   string `json:"locationUid"`
+	LocationTitle string `json:"locationTitle"`
+	LocationType  string `json:"locationType"` // oblast, raion, city, hromada, unknown
+	// RaionUID is the district the alert is in: its own ID for a raion alert, the parent
+	// raion's for a hromada. Empty for whole-oblast alerts or when the source doesn't say.
+	RaionUID  string    `json:"raionUid,omitempty"`
+	StartedAt time.Time `json:"startedAt"`
 }
 
 // CoversWholeRegion reports whether the alert covers a whole map region.

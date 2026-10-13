@@ -103,7 +103,7 @@ AI mode (`/ai/?news=<id>`) shows the post, a short summary and three follow-up q
 
 ## Map
 
-`web/src/lib/map/regions.ts` is generated from `data/geo/ukr-adm1.geojson` and `data/geo/land-ukr.geojson` with `cd web && npm run gen:map`. Boundaries: © OpenStreetMap contributors (ODbL).
+`web/src/lib/map/regions.ts` is generated from `data/geo/ukr-adm2.geojson`, `data/geo/siren-districts.json` and `data/geo/land-ukr.geojson` with `cd web && npm run gen:map`. Oblasts are dissolved from raions; partial alerts are drawn on the raions they cover. Boundaries: OCHA / SSE «Kartographia» (CC BY-IGO).
 
 ## License
 
@@ -113,5 +113,5 @@ This program is free software: you can redistribute it and/or modify it under th
 GNU Affero General Public License as published by the Free Software Foundation, either version 3
 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
 
-Data sources keep their own licenses: oblast boundaries © OpenStreetMap contributors (ODbL), see
+Data sources keep their own licenses: oblast and raion boundaries by OCHA / SSE «Kartographia» (CC BY-IGO), see
 `data/geo/README.md`; power schedules are credited in the site's settings.

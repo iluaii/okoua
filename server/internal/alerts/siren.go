@@ -22,8 +22,8 @@ type Siren struct {
 	Client  *http.Client
 
 	mu        sync.Mutex
-	parent    map[string]int // district/community ID → oblast UID
-	names     map[string]string
+	parent    map[string]int    // district/community ID → oblast UID
+	district  map[string]string // district/community ID → district ID
 	loadedAt  time.Time
 	refreshIn time.Duration
 }
@@ -66,7 +66,7 @@ func (s *Siren) Fetch(ctx context.Context) ([]Alert, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return convertSiren(raw, s.parent), nil
+	return convertSiren(raw, s.parent, s.district), nil
 }
 
 // loadRegions builds the district/community → oblast map; refreshed once a day.
@@ -88,20 +88,26 @@ func (s *Siren) loadRegions(ctx context.Context) error {
 		}
 		return err
 	}
-	parent := sirenParents(tree.States)
+	parent, district := sirenParents(tree.States)
 	s.mu.Lock()
-	s.parent, s.loadedAt = parent, time.Now()
+	s.parent, s.district, s.loadedAt = parent, district, time.Now()
 	s.mu.Unlock()
 	return nil
 }
 
-func sirenParents(states []sirenRegion) map[string]int {
-	parent := map[string]int{}
-	var walk func(r sirenRegion, oblast int)
-	walk = func(r sirenRegion, oblast int) {
+func sirenParents(states []sirenRegion) (parent map[string]int, district map[string]string) {
+	parent, district = map[string]int{}, map[string]string{}
+	var walk func(r sirenRegion, oblast int, inDistrict string)
+	walk = func(r sirenRegion, oblast int, inDistrict string) {
 		parent[r.RegionID] = oblast
+		if r.RegionType == "District" {
+			inDistrict = r.RegionID
+		}
+		if inDistrict != "" {
+			district[r.RegionID] = inDistrict
+		}
 		for _, c := range r.Children {
-			walk(c, oblast)
+			walk(c, oblast, inDistrict)
 		}
 	}
 	for _, st := range states {
@@ -109,9 +115,9 @@ func sirenParents(states []sirenRegion) map[string]int {
 		if !ok {
 			continue // special entries (big-city communities, a test region); they also appear as children
 		}
-		walk(st, uid)
+		walk(st, uid, "")
 	}
-	return parent
+	return parent, district
 }
 
 // sirenOblast maps a top-level Ukraine Alarm ID to our region UID.
@@ -141,7 +147,7 @@ var sirenLocationTypes = map[string]string{
 	"Community": "hromada",
 }
 
-func convertSiren(raw []sirenAlertRegion, parent map[string]int) []Alert {
+func convertSiren(raw []sirenAlertRegion, parent map[string]int, district map[string]string) []Alert {
 	var list []Alert
 	seen := map[string]bool{}
 	for _, r := range ordered(raw) {
@@ -183,6 +189,7 @@ func convertSiren(raw []sirenAlertRegion, parent map[string]int) []Alert {
 				LocationUID:   locUID,
 				LocationTitle: r.RegionName,
 				LocationType:  locType,
+				RaionUID:      district[a.RegionID],
 				StartedAt:     started.UTC().Truncate(time.Second),
 			})
 		}

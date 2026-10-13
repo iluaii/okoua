@@ -176,8 +176,8 @@
 			заголовок і початок допису, повний текст за посиланням на джерело.
 		</li>
 		<li>
-			Межі областей: © учасники <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>
-			(ODbL), через <a href="https://www.geoboundaries.org" rel="noopener">geoBoundaries</a>
+			Межі областей і районів: OCHA, ДНВП «Картографія»
+			(<a href="https://data.humdata.org/dataset/cod-ab-ukr" rel="noopener">HDX</a>, CC BY-IGO)
 		</li>
 	</ul>
 

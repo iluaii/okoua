@@ -102,6 +102,10 @@ func parseAlertsInUA(r io.Reader) ([]Alert, error) {
 		if err != nil {
 			return nil, fmt.Errorf("alerts.in.ua: alert %s: bad location_oblast_uid %q", a.ID, a.LocationOblastUID)
 		}
+		var raion string
+		if a.LocationType == "raion" {
+			raion = string(a.LocationUID)
+		}
 		list = append(list, Alert{
 			ID:            string(a.ID),
 			Type:          a.AlertType,
@@ -109,6 +113,7 @@ func parseAlertsInUA(r io.Reader) ([]Alert, error) {
 			LocationUID:   string(a.LocationUID),
 			LocationTitle: a.LocationTitle,
 			LocationType:  a.LocationType,
+			RaionUID:      raion,
 			StartedAt:     a.StartedAt.UTC(),
 		})
 	}

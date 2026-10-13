@@ -77,7 +77,7 @@
 
 	<div class="legend" aria-hidden="true">
 		<span><i class="sw full"></i>Тривога</span>
-		<span><i class="sw partial"></i>Частина області</span>
+		<span><i class="sw partial"></i>Окремі громади</span>
 		<span><i class="sw calm"></i>Немає</span>
 	</div>
 

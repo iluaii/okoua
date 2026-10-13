@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Oblast map with zoom: mouse wheel, two-finger pinch, drag, buttons. -->
 <script lang="ts">
-	import { regions, viewBox as baseViewBox } from '#lib/map/regions.ts';
+	import { raions, raionMesh, regions, viewBox as baseViewBox } from '#lib/map/regions.ts';
+	import { placedOnRaions, placeNames, raionStatuses } from '#lib/map/places.ts';
 	import type { RegionState } from '#lib/types.ts';
 
 	interface Props {
@@ -27,6 +28,10 @@
 	const zoom = $derived(BASE_W / view.w);
 
 	const selectedRegion = $derived(regions.find((r) => r.uid === selected));
+	// Partial alerts are drawn on their raions; an oblast whose alerts can't all be placed
+	// (unknown raion, source without raions) is hatched as a whole instead.
+	const raionState = $derived(raionStatuses(states.values()));
+	const alertRaions = $derived(raions.filter((r) => raionState.has(r.id)));
 
 	/** Screen coordinates to map coordinates. */
 	function toMap(clientX: number, clientY: number) {
@@ -184,7 +189,9 @@
 
 	function label(name: string, state: RegionState | undefined) {
 		if (!state) return `${name}: тривоги немає`;
-		return state.status === 'full' ? `${name}: тривога` : `${name}: тривога в частині області`;
+		if (state.status === 'full') return `${name}: тривога`;
+		const places = placeNames(state);
+		return places.length ? `${name}: тривога, ${places.join(', ')}` : `${name}: тривога в частині області`;
 	}
 
 	function onkeydown(e: KeyboardEvent, uid: number) {
@@ -224,7 +231,7 @@
 			d={r.d}
 			class="region"
 			class:full={state?.status === 'full'}
-			class:partial={state?.status === 'partial'}
+			class:partial={state?.status === 'partial' && !placedOnRaions(state)}
 			role="button"
 			tabindex="0"
 			aria-label={label(r.name, state)}
@@ -234,6 +241,14 @@
 		>
 			<title>{r.name}</title>
 		</path>
+	{/each}
+	<!-- Raions under alert, borders between raions and oblast borders on top; taps go through to the oblast. -->
+	{#each alertRaions as r (r.id)}
+		<path d={r.d} class="raion" class:partial={raionState.get(r.id) === 'partial'} aria-hidden="true" />
+	{/each}
+	<path d={raionMesh} class="mesh" aria-hidden="true" />
+	{#each regions as r (r.uid)}
+		<path d={r.d} class="border" aria-hidden="true" />
 	{/each}
 	{#if selectedRegion}
 		<!-- Outline of the selected region, drawn above its neighbours. -->
@@ -276,6 +291,30 @@
 	}
 	.region.partial {
 		fill: url(#hatch-partial);
+	}
+	.raion {
+		fill: var(--alert);
+		pointer-events: none;
+	}
+	.raion.partial {
+		fill: url(#hatch-partial);
+	}
+	.mesh {
+		fill: none;
+		stroke: var(--map-border);
+		stroke-width: 0.6;
+		stroke-linejoin: round;
+		stroke-opacity: 0.55;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
+	}
+	.border {
+		fill: none;
+		stroke: var(--map-border);
+		stroke-width: 1.2;
+		stroke-linejoin: round;
+		vector-effect: non-scaling-stroke;
+		pointer-events: none;
 	}
 	.region:focus-visible {
 		stroke: var(--focus);
