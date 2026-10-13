@@ -21,14 +21,118 @@ type Channel struct {
 	Kind     string // official | energy | media
 }
 
-// DefaultSources are the whitelisted channels per region UID (checked 2026-10-12).
+// DefaultSources are the whitelisted channels per region UID (checked 2026-10-13).
 // Only official bodies and established local media; never "monitoring" channels.
+// A channel belongs to one region only: posts are stored under the first region that saves them.
+// Energy companies are listed where an official channel with text posts was found.
+// Not covered: Crimea and Sevastopol. Mykolaiv has no official OVA channel with a web preview.
 func DefaultSources() map[int][]Channel {
 	return map[int][]Channel{
+		3: { // Khmelnytskyi oblast
+			{Username: "khmelnytskaODA", Name: "Хмельницька ОВА", Kind: "official"},
+			{Username: "khmelnytskoblenergo", Name: "Хмельницькобленерго", Kind: "energy"},
+			{Username: "suspilnekhmelnytskyi", Name: "Суспільне Хмельницький", Kind: "media"},
+		},
+		4: { // Vinnytsia oblast
+			{Username: "VinnytsiaODA", Name: "Вінницька ОВА", Kind: "official"},
+			{Username: "suspilne_vinnytsia", Name: "Суспільне Вінниця", Kind: "media"},
+		},
+		5: { // Rivne oblast
+			{Username: "ODA_RV", Name: "Рівненська ОВА", Kind: "official"},
+			{Username: "suspilnerivne", Name: "Суспільне Рівне", Kind: "media"},
+		},
+		8: { // Volyn oblast
+			{Username: "volynskaODA", Name: "Волинська ОВА", Kind: "official"},
+			{Username: "suspilne_lutsk", Name: "Суспільне Луцьк", Kind: "media"},
+		},
+		9: { // Dnipropetrovsk oblast
+			{Username: "dnipropetrovskaODA", Name: "Дніпропетровська ОВА", Kind: "official"},
+			{Username: "suspilnednipro", Name: "Суспільне Дніпро", Kind: "media"},
+		},
+		10: { // Zhytomyr oblast
+			{Username: "zhytomyrskaODA", Name: "Житомирська ОВА", Kind: "official"},
+			{Username: "ztoe_ua", Name: "Житомиробленерго", Kind: "energy"},
+			{Username: "suspilnezhytomyr", Name: "Суспільне Житомир", Kind: "media"},
+		},
+		11: { // Zakarpattia oblast
+			{Username: "zakarpatskaODA", Name: "Закарпатська ОВА", Kind: "official"},
+			{Username: "suspilne_uzhhorod", Name: "Суспільне Ужгород", Kind: "media"},
+		},
+		12: { // Zaporizhzhia oblast
+			{Username: "zoda_gov_ua", Name: "Запорізька ОВА", Kind: "official"},
+			{Username: "suspilnezaporizhzhya", Name: "Суспільне Запоріжжя", Kind: "media"},
+		},
+		13: { // Ivano-Frankivsk oblast
+			{Username: "onyshchuksvitlana", Name: "Івано-Франківська ОВА", Kind: "official"},
+			{Username: "suspilneivano_frankivsk", Name: "Суспільне Івано-Франківськ", Kind: "media"},
+		},
+		14: { // Kyiv oblast
+			{Username: "kyivoda", Name: "Київська ОВА", Kind: "official"},
+		},
+		15: { // Kirovohrad oblast
+			{Username: "kirovogradskaODA", Name: "Кіровоградська ОВА", Kind: "official"},
+			{Username: "suspilnekropyvnytskyi", Name: "Суспільне Кропивницький", Kind: "media"},
+		},
+		16: { // Luhansk oblast
+			{Username: "luhanskaVTSA", Name: "Луганська ОВА", Kind: "official"},
+		},
+		17: { // Mykolaiv oblast
+			{Username: "mk_energy_ua", Name: "Миколаївобленерго", Kind: "energy"},
+			{Username: "suspilnemykolaiv", Name: "Суспільне Миколаїв", Kind: "media"},
+		},
+		18: { // Odesa oblast
+			{Username: "odeskaODA", Name: "Одеська ОВА", Kind: "official"},
+			{Username: "suspilneodesa", Name: "Суспільне Одеса", Kind: "media"},
+		},
+		19: { // Poltava oblast
+			{Username: "poltavskaOVA", Name: "Полтавська ОВА", Kind: "official"},
+			{Username: "suspilnepoltava", Name: "Суспільне Полтава", Kind: "media"},
+		},
+		20: { // Sumy oblast
+			{Username: "Sumy_news_ODA", Name: "Сумська ОВА", Kind: "official"},
+			{Username: "suspilnesumy", Name: "Суспільне Суми", Kind: "media"},
+		},
+		21: { // Ternopil oblast
+			{Username: "ternopilskaODA", Name: "Тернопільська ОВА", Kind: "official"},
+			{Username: "ternopiloblenerho", Name: "Тернопільобленерго", Kind: "energy"},
+			{Username: "suspilneternopil", Name: "Суспільне Тернопіль", Kind: "media"},
+		},
+		22: { // Kharkiv oblast
+			{Username: "synegubov", Name: "Харківська ОВА", Kind: "official"},
+			{Username: "suspilne_kharkiv", Name: "Суспільне Харків", Kind: "media"},
+		},
+		23: { // Kherson oblast
+			{Username: "khersonskaODA", Name: "Херсонська ОВА", Kind: "official"},
+			{Username: "suspilnekherson", Name: "Суспільне Херсон", Kind: "media"},
+		},
+		24: { // Cherkasy oblast
+			{Username: "cherkaskaODA", Name: "Черкаська ОВА", Kind: "official"},
+			{Username: "pat_cherkasyoblenergo", Name: "Черкасиобленерго", Kind: "energy"},
+			{Username: "suspilnecherkasy", Name: "Суспільне Черкаси", Kind: "media"},
+		},
 		25: { // Chernihiv oblast
 			{Username: "chernigivskaODA", Name: "Чернігівська ОВА", Kind: "official"},
 			{Username: "chernigivoblenergo", Name: "Чернігівобленерго", Kind: "energy"},
 			{Username: "suspilnechernihiv", Name: "Суспільне Чернігів", Kind: "media"},
+		},
+		26: { // Chernivtsi oblast
+			{Username: "chernivetskaODA", Name: "Чернівецька ОВА", Kind: "official"},
+			{Username: "oe_cv_ua", Name: "Чернівціобленерго", Kind: "energy"},
+			{Username: "suspilne_chernivtsi", Name: "Суспільне Чернівці", Kind: "media"},
+		},
+		27: { // Lviv oblast
+			{Username: "kozytskyy_maksym_official", Name: "Львівська ОВА", Kind: "official"},
+			{Username: "lvivoblenergo", Name: "Львівобленерго", Kind: "energy"},
+			{Username: "suspilnelviv", Name: "Суспільне Львів", Kind: "media"},
+		},
+		28: { // Donetsk oblast
+			{Username: "vadymfilashkin", Name: "Донецька ОВА", Kind: "official"},
+			{Username: "suspilnedonbas", Name: "Суспільне Донбас", Kind: "media"},
+		},
+		31: { // Kyiv city
+			{Username: "VA_Kyiv", Name: "Київська міська ВА", Kind: "official"},
+			{Username: "KyivCityOfficial", Name: "КМДА", Kind: "official"},
+			{Username: "suspilne_kyiv", Name: "Суспільне Київ", Kind: "media"},
 		},
 	}
 }

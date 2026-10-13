@@ -2,7 +2,7 @@
 
 A web app (PWA) for Ukraine that brings air-raid alerts, power outage schedules and regional news together in one place. The interface is in Ukrainian.
 
-Status: a live air-raid alert map with push notifications per region, an installable PWA that works offline, regional news with AI answers (Chernihiv oblast), and power outage schedules for six regions (Kyiv city; Kyiv, Dnipropetrovsk, Chernihiv, Kharkiv and Poltava oblasts).
+Status: a live air-raid alert map with push notifications per region, an installable PWA that works offline, regional news with AI answers (every oblast except Crimea and Sevastopol), and power outage schedules for six regions (Kyiv city; Kyiv, Dnipropetrovsk, Chernihiv, Kharkiv and Poltava oblasts).
 
 ## Layout
 

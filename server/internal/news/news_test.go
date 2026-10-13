@@ -93,3 +93,16 @@ func TestIsThreatTracking(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultSourcesUnique(t *testing.T) {
+	seen := map[string]int{}
+	for region, chans := range DefaultSources() {
+		for _, c := range chans {
+			u := strings.ToLower(c.Username)
+			if r, ok := seen[u]; ok {
+				t.Errorf("channel %s is listed for regions %d and %d", c.Username, r, region)
+			}
+			seen[u] = region
+		}
+	}
+}
