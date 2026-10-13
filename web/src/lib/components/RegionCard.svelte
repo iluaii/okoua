@@ -5,6 +5,7 @@
 	import { alertTypeLabel, formatDuration, formatStart } from '#lib/format.ts';
 	import { follows } from '#lib/push.svelte.ts';
 	import { placeName } from '#lib/map/places.svelte.ts';
+	import { shareLink } from '#lib/share.ts';
 
 	interface Props {
 		region: MapRegion;
@@ -14,28 +15,50 @@
 		onpower: () => void;
 		onnews: () => void;
 	}
-	let { region, state, now, onclose, onpower, onnews }: Props = $props();
+	let { region, state: alerts, now, onclose, onpower, onnews }: Props = $props();
 
 	const following = $derived(follows.isFollowing(region.uid));
+
+	let shareNote = $state('');
+
+	async function share() {
+		const result = await shareLink({
+			title: `${region.name} · Око`,
+			text: `${region.name}: тривоги, графіки світла й новини`,
+			url: `${location.origin}/?region=${region.uid}`
+		});
+		shareNote = result === 'copied' ? 'Посилання скопійовано' : result === 'failed' ? 'Не вдалося поділитися' : '';
+		if (shareNote) setTimeout(() => (shareNote = ''), 1800);
+	}
 </script>
 
 <section class="card" aria-labelledby="region-title">
 	<header>
 		<h2 id="region-title">{region.name}</h2>
-		<button class="close" onclick={onclose} aria-label="Закрити">✕</button>
+		<div class="tools">
+			<button class="icon" onclick={share} aria-label="Поділитися" title="Поділитися">
+				<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+					<path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+			</button>
+			<button class="icon" onclick={onclose} aria-label="Закрити">✕</button>
+		</div>
 	</header>
+	{#if shareNote}
+		<p class="share-note" class:err={shareNote !== 'Посилання скопійовано'} role="status">{shareNote}</p>
+	{/if}
 
-	{#if !state}
+	{#if !alerts}
 		<p class="status calm">Тривоги немає</p>
 	{:else}
-		<p class="status" class:partial={state.status === 'partial'}>
-			{state.status === 'full' ? 'Тривога' : 'Тривога в частині області'}
+		<p class="status" class:partial={alerts.status === 'partial'}>
+			{alerts.status === 'full' ? 'Тривога' : 'Тривога в частині області'}
 		</p>
 		<ul class="alerts">
-			{#each state.alerts as a, i (`${i}:${a.id}`)}
+			{#each alerts.alerts as a, i (`${i}:${a.id}`)}
 				<li>
 					<span class="type">{alertTypeLabel(a.type)}</span>
-					{#if state.status === 'partial' || a.locationType !== 'oblast'}
+					{#if alerts.status === 'partial' || a.locationType !== 'oblast'}
 						<span class="where">{placeName(a)}</span>
 					{/if}
 					<span class="when">{formatStart(a.startedAt, now)} · {formatDuration(a.startedAt, now)}</span>
@@ -85,11 +108,17 @@
 		font-size: 1.15rem;
 		line-height: 1.3;
 	}
-	.close {
+	.tools {
 		flex: none;
+		display: flex;
+		gap: 2px;
+		margin: -4px -6px 0 0;
+	}
+	.icon {
+		display: grid;
+		place-items: center;
 		width: 32px;
 		height: 32px;
-		margin: -4px -6px 0 0;
 		border: 0;
 		border-radius: 8px;
 		background: transparent;
@@ -97,8 +126,16 @@
 		font-size: 1rem;
 		cursor: pointer;
 	}
-	.close:hover {
+	.icon:hover {
 		background: var(--surface-2);
+	}
+	.share-note {
+		margin: 4px 0 0;
+		font-size: 0.85rem;
+		color: var(--ok);
+	}
+	.share-note.err {
+		color: var(--alert-text);
 	}
 	.status {
 		margin: 6px 0 0;
