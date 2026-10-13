@@ -31,8 +31,9 @@ export const project = {
 	reportUrl: '',
 
 	/**
-	 * Thanks wall: supporters who agreed to be named. Add a name only with the person's
-	 * permission; people who want to stay anonymous are simply not listed. Example:
+	 * Thanks wall: supporters who agreed to be named. Consent is the name they wrote in the jar
+	 * comment (the page asks for it); never use the name from the bank statement. People who
+	 * left no comment stay anonymous and are simply not listed. Example:
 	 * { name: 'Олена з Ніжина' } or { name: 'Компанія X', note: 'сервер на рік' }
 	 */
 	thanks: [] as { name: string; note?: string }[]
