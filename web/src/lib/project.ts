@@ -22,7 +22,7 @@ export const project = {
 	 * Where people can support the project. Example:
 	 * { label: 'Банка Monobank', url: 'https://send.monobank.ua/jar/…', note: 'Сервер та ШІ' }
 	 */
-	support: [] as SupportLink[],
+	support: [{ label: 'Банка Monobank', url: 'https://send.monobank.ua/jar/AA9NNKgDfe', note: 'На сервер' }] as SupportLink[],
 
 	/** What the money pays for; shown so supporters know where it goes. */
 	costs: ['Сервер і домен', 'Запити до ШІ для переказів новин', 'Час на підтримку та нові області'],
