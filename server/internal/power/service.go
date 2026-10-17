@@ -9,6 +9,7 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -80,28 +81,37 @@ func (s *Service) Supported() []int {
 	return slices.Sorted(maps.Keys(s.regions))
 }
 
+// retryDelay is how soon a failed fetch is retried, so a server that comes
+// back online doesn't wait a whole interval to show schedules.
+var retryDelay = 30 * time.Second
+
 // Run fetches all regions until ctx is cancelled. The first fetch happens immediately.
+// After a failure it retries sooner than the interval.
 func (s *Service) Run(ctx context.Context) {
-	t := time.NewTicker(s.interval)
-	defer t.Stop()
 	for {
-		s.fetchAll(ctx)
+		wait := s.interval
+		if !s.fetchAll(ctx) {
+			wait = min(retryDelay, s.interval)
+		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-t.C:
+		case <-time.After(wait):
 		}
 	}
 }
 
-func (s *Service) fetchAll(ctx context.Context) {
+// fetchAll fetches every region and reports whether all of them succeeded.
+func (s *Service) fetchAll(ctx context.Context) bool {
 	var wg sync.WaitGroup
+	var failed atomic.Bool
 	for _, r := range s.regions {
 		wg.Go(func() {
 			fctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 			d, err := r.Source.Fetch(fctx)
 			if err != nil {
+				failed.Store(true)
 				if ctx.Err() == nil {
 					s.log.Warn("power fetch failed", "region", r.UID, "err", err)
 				}
@@ -113,6 +123,7 @@ func (s *Service) fetchAll(ctx context.Context) {
 		})
 	}
 	wg.Wait()
+	return !failed.Load()
 }
 
 // Get returns the schedule for today and tomorrow (Kyiv time) for a region.
